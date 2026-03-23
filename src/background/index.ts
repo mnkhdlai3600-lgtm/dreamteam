@@ -7,8 +7,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     (async () => {
       try {
         const text = message.payload?.text ?? "";
+        console.log("BG GOT TEXT:", text);
 
         const result = await checkText(text);
+        console.log("BG RESULT:", result);
 
         sendResponse({
           success: true,

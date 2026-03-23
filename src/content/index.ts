@@ -79,29 +79,33 @@ const setElementText = (el: HTMLElement, value: string) => {
   }
 };
 
-const checkWithServer = async (text: string) => {
-  const res = await fetch("http://localhost:3000/check", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ text }),
+const checkWithBackground = async (text: string) => {
+  return new Promise<{
+    success: boolean;
+    data?: {
+      original: string;
+      corrected: string;
+      changed: boolean;
+      suggestions: string[];
+      mode: "openai-galig" | "bolor-suggest" | "none";
+    };
+    error?: string;
+  }>((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      {
+        type: "CHECK_TEXT",
+        payload: { text },
+      },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+
+        resolve(response);
+      },
+    );
   });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.message || `Server error: ${res.status}`);
-  }
-
-  return data as {
-    ok: boolean;
-    original: string;
-    corrected: string;
-    changed: boolean;
-    suggestions: string[];
-    mode: "openai-galig" | "bolor-suggest" | "none";
-  };
 };
 
 const clearSuggestion = () => {
@@ -125,8 +129,14 @@ const checkText = async (text: string) => {
   }
 
   try {
-    const data = await checkWithServer(trimmed);
-    console.log("Server response:", data);
+    const response = await checkWithBackground(trimmed);
+
+    if (!response?.success || !response.data) {
+      throw new Error(response?.error || "Check failed");
+    }
+
+    const data = response.data;
+    console.log("Background response:", data);
 
     if (!activeElement) return;
 
@@ -152,7 +162,7 @@ const checkText = async (text: string) => {
     if (activeElement) {
       createIndicator(
         activeElement,
-        error instanceof Error ? error.message : "Server holboltiin aldaa",
+        error instanceof Error ? error.message : "Holboltiin aldaa",
       );
     }
   }

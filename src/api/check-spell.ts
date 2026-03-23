@@ -1,4 +1,4 @@
-import { getBolorSpellSuggestions } from "./bolor-spell";
+import { checkShortTextWithBolor } from "./bolor-spell";
 import { correctWithOpenAI } from "./openai";
 
 export type CheckResult = {
@@ -18,6 +18,7 @@ const looksLikeLatinMongolian = (text: string) => {
 
 export const checkText = async (text: string): Promise<CheckResult> => {
   const trimmed = text.trim();
+  console.log("CHECK TEXT:", trimmed);
 
   if (!trimmed) {
     return {
@@ -30,6 +31,7 @@ export const checkText = async (text: string): Promise<CheckResult> => {
   }
 
   if (looksLikeLatinMongolian(trimmed)) {
+    console.log("MODE: OPENAI GALIG");
     const corrected = await correctWithOpenAI(trimmed);
 
     return {
@@ -41,16 +43,12 @@ export const checkText = async (text: string): Promise<CheckResult> => {
     };
   }
 
-  const words = trimmed.split(/\s+/);
-  const lastWord = words[words.length - 1];
-
   try {
-    const suggestions = await getBolorSpellSuggestions(lastWord);
+    console.log("MODE: BOLOR SHORT");
+    const suggestions = await checkShortTextWithBolor(trimmed);
 
     if (suggestions.length > 0) {
-      const correctedWords = [...words];
-      correctedWords[correctedWords.length - 1] = suggestions[0];
-      const corrected = correctedWords.join(" ");
+      const corrected = suggestions[0];
 
       return {
         original: text,
@@ -61,9 +59,10 @@ export const checkText = async (text: string): Promise<CheckResult> => {
       };
     }
   } catch (error) {
-    console.error("Bolor suggest алдаа:", error);
+    console.error("Bolor short check алдаа:", error);
   }
 
+  console.log("MODE: OPENAI FALLBACK");
   const corrected = await correctWithOpenAI(trimmed);
 
   return {
