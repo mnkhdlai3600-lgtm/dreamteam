@@ -44,20 +44,24 @@ export const checkText = async (text: string): Promise<CheckResult> => {
   const words = trimmed.split(/\s+/);
   const lastWord = words[words.length - 1];
 
-  const suggestions = await getBolorSpellSuggestions(lastWord);
+  try {
+    const suggestions = await getBolorSpellSuggestions(lastWord);
 
-  if (suggestions.length > 0) {
-    const correctedWords = [...words];
-    correctedWords[correctedWords.length - 1] = suggestions[0];
-    const corrected = correctedWords.join(" ");
+    if (suggestions.length > 0) {
+      const correctedWords = [...words];
+      correctedWords[correctedWords.length - 1] = suggestions[0];
+      const corrected = correctedWords.join(" ");
 
-    return {
-      original: text,
-      corrected,
-      changed: corrected !== text,
-      suggestions,
-      mode: corrected !== text ? "bolor-suggest" : "none",
-    };
+      return {
+        original: text,
+        corrected,
+        changed: corrected !== text,
+        suggestions,
+        mode: corrected !== text ? "bolor-suggest" : "none",
+      };
+    }
+  } catch (error) {
+    console.error("Bolor suggest алдаа:", error);
   }
 
   const corrected = await correctWithOpenAI(trimmed);
