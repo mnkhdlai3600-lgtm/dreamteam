@@ -91,6 +91,19 @@ const checkWithBackground = async (text: string) => {
     };
     error?: string;
   }>((resolve, reject) => {
+    if (
+      typeof chrome === "undefined" ||
+      !chrome.runtime ||
+      typeof chrome.runtime.sendMessage !== "function"
+    ) {
+      reject(
+        new Error(
+          "Extension context old or unavailable. Tab-aa refresh hiine uu.",
+        ),
+      );
+      return;
+    }
+
     chrome.runtime.sendMessage(
       {
         type: "CHECK_TEXT",
@@ -107,7 +120,12 @@ const checkWithBackground = async (text: string) => {
     );
   });
 };
-
+console.log("chrome exists:", typeof chrome !== "undefined");
+console.log("chrome.runtime exists:", !!chrome?.runtime);
+console.log(
+  "chrome.runtime.sendMessage exists:",
+  typeof chrome?.runtime?.sendMessage === "function",
+);
 const clearSuggestion = () => {
   latestSuggestion = null;
 };
