@@ -1,16 +1,19 @@
 export const getBolorSpellSuggestions = async (
   word: string,
 ): Promise<string[]> => {
-  const response = await fetch("https://api.bolor.net/v1.2/spell-suggest", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_BOLORSPELL_API_KEY}`,
+  const response = await fetch(
+    "https://api.chimege.com/v1.2/spell-check-short",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_BOLORSPELL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        word,
+      }),
     },
-    body: JSON.stringify({
-      word,
-    }),
-  });
+  );
 
   const rawText = await response.text();
 
