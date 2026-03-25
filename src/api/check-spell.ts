@@ -9,20 +9,39 @@ export type CheckResult = {
   mode: "openai-galig" | "bolor-suggest" | "none";
 };
 
-const isCyrillicText = (text: string) => {
-  return /^[А-Яа-яӨөҮүЁёЇїІіҐґ\s]+$/.test(text.trim());
+const cleanText = (text: string) => {
+  return text.trim();
 };
 
-const isLatinText = (text: string) => {
-  return /^[A-Za-z\s]+$/.test(text.trim());
+const countLatinLetters = (text: string) => {
+  const matches = text.match(/[A-Za-z]/g);
+  return matches ? matches.length : 0;
+};
+
+const countCyrillicLetters = (text: string) => {
+  const matches = text.match(/[А-Яа-яӨөҮүЁё]/g);
+  return matches ? matches.length : 0;
 };
 
 const isSingleWord = (text: string) => {
-  return text.trim().length > 0 && !/\s/.test(text.trim());
+  const normalized = text.trim();
+  return normalized.length > 0 && !/\s/.test(normalized);
+};
+
+const isMostlyLatin = (text: string) => {
+  const latinCount = countLatinLetters(text);
+  const cyrillicCount = countCyrillicLetters(text);
+
+  return latinCount > 0 && latinCount >= cyrillicCount;
+};
+
+const isPureSingleCyrillicWord = (text: string) => {
+  const normalized = text.trim();
+  return /^[А-Яа-яӨөҮүЁё]+$/.test(normalized);
 };
 
 export const checkText = async (text: string): Promise<CheckResult> => {
-  const trimmed = text.trim();
+  const trimmed = cleanText(text);
 
   if (!trimmed) {
     return {
@@ -34,39 +53,51 @@ export const checkText = async (text: string): Promise<CheckResult> => {
     };
   }
 
-  if (isSingleWord(trimmed) && isCyrillicText(trimmed)) {
-    const suggestions = await suggestWithBolor(trimmed);
-    const corrected = suggestions[0] ?? trimmed;
+  try {
+    if (isSingleWord(trimmed) && isPureSingleCyrillicWord(trimmed)) {
+      const suggestions = await suggestWithBolor(trimmed);
+      const corrected = suggestions[0] ?? trimmed;
+
+      return {
+        original: text,
+        corrected,
+        changed: corrected !== trimmed,
+        suggestions,
+        mode:
+          suggestions.length > 0 && corrected !== trimmed
+            ? "bolor-suggest"
+            : "none",
+      };
+    }
+
+    if (isMostlyLatin(trimmed)) {
+      const corrected = await correctWithOpenAI(trimmed);
+
+      return {
+        original: text,
+        corrected,
+        changed: corrected.trim() !== trimmed,
+        suggestions: corrected.trim() !== trimmed ? [corrected] : [],
+        mode: corrected.trim() !== trimmed ? "openai-galig" : "none",
+      };
+    }
 
     return {
       original: text,
-      corrected,
-      changed: corrected !== trimmed,
-      suggestions,
-      mode:
-        suggestions.length > 0 && corrected !== trimmed
-          ? "bolor-suggest"
-          : "none",
+      corrected: text,
+      changed: false,
+      suggestions: [],
+      mode: "none",
     };
-  }
-
-  if (isLatinText(trimmed)) {
-    const corrected = await correctWithOpenAI(trimmed);
+  } catch (error) {
+    console.error("checkText failed:", error);
 
     return {
       original: text,
-      corrected,
-      changed: corrected !== trimmed,
-      suggestions: corrected !== trimmed ? [corrected] : [],
-      mode: corrected !== trimmed ? "openai-galig" : "none",
+      corrected: text,
+      changed: false,
+      suggestions: [],
+      mode: "none",
     };
   }
-
-  return {
-    original: text,
-    corrected: text,
-    changed: false,
-    suggestions: [],
-    mode: "none",
-  };
 };
