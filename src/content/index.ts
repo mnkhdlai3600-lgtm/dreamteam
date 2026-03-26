@@ -1,6 +1,7 @@
-console.log("Bolor AI content script loaded v14");
+console.log("Bolor AI content script loaded v15");
 
 const INDICATOR_ID = "bolor-ai-indicator";
+const DEFAULT_ACCENT = "#8b5cf6";
 
 let activeElement: HTMLElement | null = null;
 let debounceTimer: number | null = null;
@@ -37,39 +38,98 @@ const removeIndicator = () => {
   if (existing) existing.remove();
 };
 
-const createIndicator = (target: HTMLElement, text = "Bolor AI идэвхтэй") => {
+const isValidHexColor = (value: unknown): value is string => {
+  return (
+    typeof value === "string" &&
+    /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)
+  );
+};
+
+const getAccentColor = async (): Promise<string> => {
+  try {
+    const result = await chrome.storage.local.get(["accentColor"]);
+    const savedAccent = result.accentColor;
+
+    if (isValidHexColor(savedAccent)) {
+      return savedAccent;
+    }
+
+    return DEFAULT_ACCENT;
+  } catch (error) {
+    console.error("Failed to load accent color:", error);
+    return DEFAULT_ACCENT;
+  }
+};
+
+const applyAccentColorToRoot = (color: string) => {
+  document.documentElement.style.setProperty("--bolor-accent", color);
+};
+
+const applyInitialAccentColor = async () => {
+  const accentColor = await getAccentColor();
+  applyAccentColorToRoot(accentColor);
+};
+
+const watchAccentColorChanges = () => {
+  if (!chrome?.storage?.onChanged) return;
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local") return;
+    if (!changes.accentColor) return;
+
+    const nextColor = isValidHexColor(changes.accentColor.newValue)
+      ? changes.accentColor.newValue
+      : DEFAULT_ACCENT;
+
+    applyAccentColorToRoot(nextColor);
+
+    const indicator = document.getElementById(
+      INDICATOR_ID,
+    ) as HTMLDivElement | null;
+    if (indicator) {
+      indicator.style.background = nextColor;
+    }
+  });
+};
+
+const createIndicator = async (
+  target: HTMLElement,
+  text = "Bolor AI идэвхтэй",
+) => {
   removeIndicator();
 
   const rect = target.getBoundingClientRect();
+  const accentColor = await getAccentColor();
 
   const div = document.createElement("div");
   div.id = INDICATOR_ID;
   div.textContent = text;
   div.style.position = "fixed";
   div.style.zIndex = "999999";
-  div.style.padding = "8px 12px";
-  div.style.borderRadius = "8px";
-  div.style.background = "#111";
-  div.style.color = "#fff";
+  div.style.padding = "10px 14px";
+  div.style.borderRadius = "12px";
+  div.style.background = accentColor;
+  div.style.color = "#ffffff";
   div.style.fontSize = "13px";
   div.style.fontFamily = "Arial, sans-serif";
-  div.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
-  div.style.maxWidth = "420px";
+  div.style.boxShadow = "0 10px 24px rgba(0,0,0,0.22)";
+  div.style.maxWidth = "320px";
   div.style.whiteSpace = "nowrap";
   div.style.overflow = "hidden";
   div.style.textOverflow = "ellipsis";
   div.style.pointerEvents = "none";
+  div.style.lineHeight = "1.3";
 
   document.body.appendChild(div);
 
-  const spacing = 8;
+  const spacing = 10;
   const popupHeight = div.offsetHeight;
   const popupWidth = div.offsetWidth;
 
   let top = rect.bottom + spacing;
-  let left = rect.left;
+  let left = rect.left + rect.width / 2 - popupWidth / 2;
 
-  if (top + popupHeight > window.innerHeight) {
+  if (top + popupHeight > window.innerHeight - 8) {
     top = rect.top - popupHeight - spacing;
   }
 
@@ -444,12 +504,12 @@ const checkText = async (text: string) => {
       latestSuggestion = finalSuggestion;
 
       if (data.mode === "openai-galig" || hasLatin) {
-        createIndicator(
+        void createIndicator(
           activeElement,
           `Option+Space дарж кирилл болгоно: ${finalSuggestion}`,
         );
       } else {
-        createIndicator(
+        void createIndicator(
           activeElement,
           `Option+Space дарж засна: ${finalSuggestion}`,
         );
@@ -464,7 +524,7 @@ const checkText = async (text: string) => {
     clearSuggestion();
 
     if (activeElement) {
-      createIndicator(
+      void createIndicator(
         activeElement,
         error instanceof Error ? error.message : "Холболтын алдаа",
       );
@@ -541,7 +601,7 @@ const applySuggestion = () => {
     const ok = setElementText(activeElement, suggestion);
 
     if (!ok && activeElement) {
-      createIndicator(activeElement, "Replace амжилтгүй");
+      void createIndicator(activeElement, "Replace амжилтгүй");
       return;
     }
 
@@ -550,9 +610,9 @@ const applySuggestion = () => {
 
     window.setTimeout(() => {
       if (activeElement && verifyElementText(activeElement, suggestion)) {
-        createIndicator(activeElement, "Засвар хэрэглэгдлээ");
+        void createIndicator(activeElement, "Засвар хэрэглэгдлээ");
       } else if (activeElement) {
-        createIndicator(activeElement, "Replace амжилтгүй");
+        void createIndicator(activeElement, "Replace амжилтгүй");
       }
     }, 120);
   } finally {
@@ -589,7 +649,7 @@ document.addEventListener(
     if (!target) return;
 
     activeElement = target;
-    createIndicator(target);
+    void createIndicator(target);
   },
   true,
 );
@@ -693,4 +753,7 @@ document.addEventListener(
   true,
 );
 
-console.log("NEW MESSENGER FIX LOADED v14");
+void applyInitialAccentColor();
+watchAccentColorChanges();
+
+console.log("NEW MESSENGER FIX LOADED v15");
