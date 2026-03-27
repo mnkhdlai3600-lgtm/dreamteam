@@ -6,12 +6,10 @@ export type CheckResult = {
   corrected: string;
   changed: boolean;
   suggestions: string[];
-  mode: "openai-galig" | "bolor-suggest" | "none";
+  mode: "openai-galig" | "bolor-suggest" | "openai-then-bolor" | "none";
 };
 
-const cleanText = (text: string) => {
-  return text.trim();
-};
+const cleanText = (text: string) => text.trim();
 
 const countLatinLetters = (text: string) => {
   const matches = text.match(/[A-Za-z]/g);
@@ -23,21 +21,62 @@ const countCyrillicLetters = (text: string) => {
   return matches ? matches.length : 0;
 };
 
-const isSingleWord = (text: string) => {
-  const normalized = text.trim();
-  return normalized.length > 0 && !/\s/.test(normalized);
-};
-
 const isMostlyLatin = (text: string) => {
   const latinCount = countLatinLetters(text);
   const cyrillicCount = countCyrillicLetters(text);
-
   return latinCount > 0 && latinCount >= cyrillicCount;
 };
 
-const isPureSingleCyrillicWord = (text: string) => {
-  const normalized = text.trim();
-  return /^[А-Яа-яӨөҮүЁё]+$/.test(normalized);
+const isPureCyrillicWord = (text: string) => /^[А-Яа-яӨөҮүЁё]+$/.test(text);
+
+const tokenizeText = (text: string) => {
+  return (
+    text.match(/[А-Яа-яӨөҮүЁё]+|[A-Za-z]+|\s+|[^\sA-Za-zА-Яа-яӨөҮүЁё]+/g) ?? []
+  );
+};
+
+const bolorCache = new Map<string, string[]>();
+
+const correctCyrillicTextWithBolor = async (text: string) => {
+  const tokens = tokenizeText(text);
+  const correctedTokens: string[] = [];
+  const allSuggestions: string[] = [];
+  let changed = false;
+
+  for (const token of tokens) {
+    if (!isPureCyrillicWord(token)) {
+      correctedTokens.push(token);
+      continue;
+    }
+
+    try {
+      let suggestions: string[] = [];
+
+      if (bolorCache.has(token)) {
+        suggestions = bolorCache.get(token) ?? [];
+      } else {
+        suggestions = await suggestWithBolor(token);
+        bolorCache.set(token, suggestions);
+      }
+
+      const best = suggestions[0] ?? token;
+
+      correctedTokens.push(best);
+      allSuggestions.push(...suggestions);
+
+      if (best !== token) {
+        changed = true;
+      }
+    } catch {
+      correctedTokens.push(token);
+    }
+  }
+
+  return {
+    corrected: correctedTokens.join(""),
+    suggestions: allSuggestions,
+    changed,
+  };
 };
 
 export const checkText = async (text: string): Promise<CheckResult> => {
@@ -54,7 +93,7 @@ export const checkText = async (text: string): Promise<CheckResult> => {
   }
 
   try {
-    if (isSingleWord(trimmed) && isPureSingleCyrillicWord(trimmed)) {
+    if (isPureCyrillicWord(trimmed)) {
       const suggestions = await suggestWithBolor(trimmed);
       const corrected = suggestions[0] ?? trimmed;
 
@@ -63,31 +102,32 @@ export const checkText = async (text: string): Promise<CheckResult> => {
         corrected,
         changed: corrected !== trimmed,
         suggestions,
-        mode:
-          suggestions.length > 0 && corrected !== trimmed
-            ? "bolor-suggest"
-            : "none",
+        mode: suggestions.length > 0 ? "bolor-suggest" : "none",
       };
     }
+
+    let baseText = trimmed;
+    let usedOpenAI = false;
 
     if (isMostlyLatin(trimmed)) {
-      const corrected = await correctWithOpenAI(trimmed);
-
-      return {
-        original: text,
-        corrected,
-        changed: corrected.trim() !== trimmed,
-        suggestions: corrected.trim() !== trimmed ? [corrected] : [],
-        mode: corrected.trim() !== trimmed ? "openai-galig" : "none",
-      };
+      baseText = (await correctWithOpenAI(trimmed)).trim();
+      usedOpenAI = baseText !== trimmed;
     }
+
+    const bolorResult = await correctCyrillicTextWithBolor(baseText);
 
     return {
       original: text,
-      corrected: text,
-      changed: false,
-      suggestions: [],
-      mode: "none",
+      corrected: bolorResult.corrected,
+      changed: bolorResult.corrected !== trimmed,
+      suggestions: bolorResult.suggestions,
+      mode: bolorResult.changed
+        ? usedOpenAI
+          ? "openai-then-bolor"
+          : "bolor-suggest"
+        : usedOpenAI
+          ? "openai-galig"
+          : "none",
     };
   } catch (error) {
     console.error("checkText failed:", error);

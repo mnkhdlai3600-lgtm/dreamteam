@@ -1,4 +1,8 @@
-export type CheckMode = "openai-galig" | "bolor-suggest" | "none";
+export type CheckMode =
+  | "openai-galig"
+  | "bolor-suggest"
+  | "openai-then-bolor"
+  | "none";
 
 export type CheckResult = {
   original: string;

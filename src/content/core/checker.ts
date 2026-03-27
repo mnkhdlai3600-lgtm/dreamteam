@@ -16,6 +16,7 @@ import {
   latestSuggestion,
   nextRequestId,
   requestCounter,
+  selectedSuggestionIndex,
   setActiveElement,
   setDebounceTimer,
   setIsApplyingHotkey,
@@ -23,6 +24,8 @@ import {
   setLastAppliedText,
   setLastCheckedText,
   setLatestSuggestion,
+  setLatestSuggestions,
+  setSelectedSuggestionIndex,
   setSuppressInputUntil,
 } from "./state";
 
@@ -51,6 +54,24 @@ const checkWithBackground = async (text: string) =>
     );
   });
 
+const uniqueSuggestions = (items: string[]) => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const item of items) {
+    const value = item.trim();
+    if (!value) continue;
+    if (seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+  }
+
+  return result;
+};
+
+const isPureSingleCyrillicWord = (text: string) =>
+  /^[А-Яа-яӨөҮүЁё]+$/.test(text);
+
 export const checkText = async (text: string) => {
   const trimmed = text.trim();
 
@@ -75,8 +96,9 @@ export const checkText = async (text: string) => {
       !response?.success ||
       !response.data
     ) {
-      if (currentRequestId === requestCounter)
+      if (currentRequestId === requestCounter) {
         throw new Error(response?.error || "Check failed");
+      }
       return;
     }
 
@@ -84,19 +106,34 @@ export const checkText = async (text: string) => {
 
     const { data } = response;
     const corrected = (data.corrected || "").trim();
-    const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
-    const hasLatin = /[a-zA-Z]/.test(trimmed);
-    const firstSuggestion = suggestions[0]?.trim() || "";
+    const suggestions = uniqueSuggestions(
+      Array.isArray(data.suggestions) ? data.suggestions : [],
+    );
 
-    const finalSuggestion =
-      corrected && corrected !== trimmed
-        ? corrected
-        : firstSuggestion && firstSuggestion !== trimmed
-          ? firstSuggestion
-          : "";
+    const hasLatin = /[a-zA-Z]/.test(trimmed);
+    const isSingleCyrillicWord = isPureSingleCyrillicWord(trimmed);
+
+    let displaySuggestions: string[] = [];
+
+    if (isSingleCyrillicWord) {
+      displaySuggestions = suggestions.filter((item) => item !== trimmed);
+      if (!displaySuggestions.length && corrected && corrected !== trimmed) {
+        displaySuggestions = [corrected];
+      }
+    } else {
+      const finalSuggestion =
+        corrected && corrected !== trimmed
+          ? corrected
+          : suggestions[0] && suggestions[0] !== trimmed
+            ? suggestions[0]
+            : "";
+
+      displaySuggestions = finalSuggestion ? [finalSuggestion] : [];
+    }
 
     const shouldSuggest =
-      !!finalSuggestion && (data.changed || hasLatin || suggestions.length > 0);
+      displaySuggestions.length > 0 &&
+      (data.changed || hasLatin || suggestions.length > 0);
 
     if (!shouldSuggest) {
       clearSuggestion();
@@ -104,17 +141,45 @@ export const checkText = async (text: string) => {
       return;
     }
 
-    setLatestSuggestion(finalSuggestion);
+    setLatestSuggestions(displaySuggestions);
+    setSelectedSuggestionIndex(0);
+    setLatestSuggestion(displaySuggestions[0] ?? null);
 
     const prefix =
-      data.mode === "openai-galig" || hasLatin
+      data.mode === "openai-galig" ||
+      data.mode === "openai-then-bolor" ||
+      hasLatin
         ? "Option+Space дарж кирилл болгоно: "
-        : "Option+Space дарж засна: ";
+        : displaySuggestions.length > 1
+          ? "Саналуудаас сонгоно: "
+          : "Option+Space дарж засна: ";
 
-    void createIndicator(activeElement, `${prefix}${finalSuggestion}`);
+    const preview =
+      displaySuggestions.length > 1
+        ? `${displaySuggestions.slice(0, 5).join(", ")}${
+            displaySuggestions.length > 5 ? "..." : ""
+          }`
+        : displaySuggestions[0];
+
+    if (displaySuggestions.length > 1) {
+      void createIndicator(activeElement, "Саналуудаас сонгоно", {
+        suggestions: displaySuggestions,
+        selectedIndex: 0,
+        onSuggestionClick: (index) => {
+          const chosen = displaySuggestions[index];
+          if (!chosen) return;
+          setSelectedSuggestionIndex(index);
+          setLatestSuggestion(chosen);
+          applySuggestion();
+        },
+      });
+    } else {
+      void createIndicator(activeElement, `${prefix}${preview}`);
+    }
   } catch (error) {
     if (currentRequestId !== requestCounter) return;
     clearSuggestion();
+
     if (activeElement) {
       void createIndicator(
         activeElement,
@@ -138,8 +203,10 @@ export const handleInput = () => {
   if (
     (lastAppliedText && text === lastAppliedText.trim()) ||
     text === lastCheckedText
-  )
+  ) {
     return;
+  }
+
   if (debounceTimer) window.clearTimeout(debounceTimer);
 
   setDebounceTimer(
@@ -157,8 +224,9 @@ export const handleInput = () => {
       if (
         (lastAppliedText && latestText === lastAppliedText.trim()) ||
         latestText === lastCheckedText
-      )
+      ) {
         return;
+      }
 
       setLastCheckedText(latestText);
       void checkText(latestText);
@@ -205,4 +273,8 @@ export const applySuggestion = () => {
     window.setTimeout(() => setIsApplyingSuggestion(false), 700);
     window.setTimeout(() => setIsApplyingHotkey(false), 400);
   }
+};
+
+export const selectNextSuggestion = () => {
+  void selectedSuggestionIndex;
 };

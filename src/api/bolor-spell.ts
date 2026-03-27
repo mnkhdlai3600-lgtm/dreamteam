@@ -1,9 +1,18 @@
 export const suggestWithBolor = async (text: string): Promise<string[]> => {
+  const bolorKey = import.meta.env.VITE_BOLORSPELL_API_KEY;
+
+  console.log("BOLOR KEY EXISTS:", !!bolorKey);
+  console.log("BOLOR KEY LENGTH:", bolorKey?.length ?? 0);
+  console.log(
+    "BOLOR KEY PREVIEW:",
+    bolorKey ? `${bolorKey.slice(0, 6)}...` : "missing",
+  );
+
   const response = await fetch("https://api.chimege.com/v1.2/spell-suggest", {
     method: "POST",
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      token: import.meta.env.VITE_BOLORSPELL_API_KEY,
+      token: bolorKey,
     },
     body: text,
   });
