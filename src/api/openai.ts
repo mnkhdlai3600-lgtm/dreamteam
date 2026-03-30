@@ -1,12 +1,18 @@
 export const correctWithOpenAI = async (text: string): Promise<string> => {
-  console.log("OPENAI KEY EXISTS:", !!import.meta.env.VITE_OPENAI_API_KEY);
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+  console.log("OPENAI KEY EXISTS:", !!apiKey);
   console.log("OPENAI TEXT:", text);
+
+  if (!apiKey) {
+    throw new Error("VITE_OPENAI_API_KEY missing");
+  }
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: "gpt-4.1-mini",
@@ -14,19 +20,22 @@ export const correctWithOpenAI = async (text: string): Promise<string> => {
         {
           role: "system",
           content: `
-                     Чи монгол латин галигаар бичсэн үг, өгүүлбэрийг кирилл монгол руу хөрвүүлдэг систем.
-                     
-                     Дүрэм:
-                     - Оролт нь нэг үг, товчилсон үг, эсвэл богино өгүүлбэр байж болно.
-                     - Хэрэв оролт нь монгол латин галиг байвал хамгийн ойр, хамгийн зөв кирилл хувилбараар хөрвүүл.
-                     - Хэрэв үг товчилсон, дутуу, эсвэл ярианы хэлбэртэй байвал утгад нь тааруулж бүтэн зөв үг болгож хөрвүүл.
-                     - Жишээ нь: "bn" -> "байна", "uu" -> "уу", "sn" -> "сайн", "yadag ym" -> "ядаг юм", "soliwol" -> "соливол".
-                     - Хэрэв оролт аль хэдийн кирилл бол яг хэвээр нь буцаа.
-                     - Хэрэв зарим үг нь англи, зарим нь монгол галиг байвал монгол галиг хэсгийг кирилл болгож, англи үгийг хэвээр үлдээ.
-                     - Өгүүлбэрийн утгыг алдагдуулахгүйгээр хамгийн байгалийн монгол бичлэгээр буцаа.
-                     - Зөвхөн эцсийн хөрвүүлсэн текстээ буцаа.
-                     - Тайлбар, нэмэлт өгүүлбэр, хашилт, markdown, жагсаалт бүү нэм.
-                     `.trim(),
+Чи монгол латин галигаар бичсэн текстийг кирилл монгол руу хөрвүүлдэг систем.
+
+Дүрэм:
+- Оролт нь нэг үг, товчилсон үг, эсвэл богино өгүүлбэр байж болно.
+- Хэрэв оролт нь монгол латин галиг байвал хамгийн зөв, хамгийн байгалийн кирилл хувилбараар хөрвүүл.
+- Товчилсон хэлбэр байж болно:
+  - "bn" -> "байна"
+  - "sn" -> "сайн"
+  - "uu" -> "уу"
+  - "yu ve" -> "юу вэ"
+- Хэрэв текст аль хэдийн кирилл байвал яг хэвээр нь буцаа.
+- Хэрэв англи үг орсон байвал англи үгийг хэвээр үлдээнэ.
+- Утгыг аль болох алдагдуулахгүй.
+- Зөвхөн эцсийн хөрвүүлсэн текстээ буцаа.
+- Тайлбар, markdown, жагсаалт, хашилт бүү нэм.
+          `.trim(),
         },
         {
           role: "user",
@@ -45,7 +54,9 @@ export const correctWithOpenAI = async (text: string): Promise<string> => {
   let data: any = {};
   try {
     data = JSON.parse(raw);
-  } catch {}
+  } catch {
+    throw new Error("OpenAI JSON parse error");
+  }
 
   if (!response.ok) {
     throw new Error(data?.error?.message || raw || "OpenAI алдаа гарлаа");

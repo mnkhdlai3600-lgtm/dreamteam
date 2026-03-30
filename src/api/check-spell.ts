@@ -6,7 +6,7 @@ export type CheckResult = {
   corrected: string;
   changed: boolean;
   suggestions: string[];
-  mode: "openai-galig" | "bolor-suggest" | "openai-then-bolor" | "none";
+  mode: "openai-galig" | "bolor-suggest" | "none";
 };
 
 const cleanText = (text: string) => text.trim();
@@ -24,59 +24,24 @@ const countCyrillicLetters = (text: string) => {
 const isMostlyLatin = (text: string) => {
   const latinCount = countLatinLetters(text);
   const cyrillicCount = countCyrillicLetters(text);
+
   return latinCount > 0 && latinCount >= cyrillicCount;
 };
 
 const isPureCyrillicWord = (text: string) => /^[А-Яа-яӨөҮүЁё]+$/.test(text);
 
-const tokenizeText = (text: string) => {
-  return (
-    text.match(/[А-Яа-яӨөҮүЁё]+|[A-Za-z]+|\s+|[^\sA-Za-zА-Яа-яӨөҮүЁё]+/g) ?? []
-  );
-};
+const normalizeWord = (text: string) => text.trim().toLowerCase();
 
 const bolorCache = new Map<string, string[]>();
 
-const correctCyrillicTextWithBolor = async (text: string) => {
-  const tokens = tokenizeText(text);
-  const correctedTokens: string[] = [];
-  const allSuggestions: string[] = [];
-  let changed = false;
-
-  for (const token of tokens) {
-    if (!isPureCyrillicWord(token)) {
-      correctedTokens.push(token);
-      continue;
-    }
-
-    try {
-      let suggestions: string[] = [];
-
-      if (bolorCache.has(token)) {
-        suggestions = bolorCache.get(token) ?? [];
-      } else {
-        suggestions = await suggestWithBolor(token);
-        bolorCache.set(token, suggestions);
-      }
-
-      const best = suggestions[0] ?? token;
-
-      correctedTokens.push(best);
-      allSuggestions.push(...suggestions);
-
-      if (best !== token) {
-        changed = true;
-      }
-    } catch {
-      correctedTokens.push(token);
-    }
+const getBolorSuggestions = async (word: string) => {
+  if (bolorCache.has(word)) {
+    return bolorCache.get(word) ?? [];
   }
 
-  return {
-    corrected: correctedTokens.join(""),
-    suggestions: allSuggestions,
-    changed,
-  };
+  const suggestions = await suggestWithBolor(word);
+  bolorCache.set(word, suggestions);
+  return suggestions;
 };
 
 export const checkText = async (text: string): Promise<CheckResult> => {
@@ -94,7 +59,33 @@ export const checkText = async (text: string): Promise<CheckResult> => {
 
   try {
     if (isPureCyrillicWord(trimmed)) {
-      const suggestions = await suggestWithBolor(trimmed);
+      const suggestions = await getBolorSuggestions(trimmed);
+
+      if (suggestions.length === 0) {
+        return {
+          original: text,
+          corrected: trimmed,
+          changed: false,
+          suggestions: [],
+          mode: "none",
+        };
+      }
+
+      const originalNormalized = normalizeWord(trimmed);
+      const containsOriginal = suggestions.some(
+        (item) => normalizeWord(item) === originalNormalized,
+      );
+
+      if (containsOriginal) {
+        return {
+          original: text,
+          corrected: trimmed,
+          changed: false,
+          suggestions,
+          mode: "none",
+        };
+      }
+
       const corrected = suggestions[0] ?? trimmed;
 
       return {
@@ -102,32 +93,28 @@ export const checkText = async (text: string): Promise<CheckResult> => {
         corrected,
         changed: corrected !== trimmed,
         suggestions,
-        mode: suggestions.length > 0 ? "bolor-suggest" : "none",
+        mode: corrected !== trimmed ? "bolor-suggest" : "none",
       };
     }
 
-    let baseText = trimmed;
-    let usedOpenAI = false;
-
     if (isMostlyLatin(trimmed)) {
-      baseText = (await correctWithOpenAI(trimmed)).trim();
-      usedOpenAI = baseText !== trimmed;
-    }
+      const corrected = (await correctWithOpenAI(trimmed)).trim();
 
-    const bolorResult = await correctCyrillicTextWithBolor(baseText);
+      return {
+        original: text,
+        corrected,
+        changed: corrected !== trimmed,
+        suggestions: corrected !== trimmed ? [corrected] : [],
+        mode: corrected !== trimmed ? "openai-galig" : "none",
+      };
+    }
 
     return {
       original: text,
-      corrected: bolorResult.corrected,
-      changed: bolorResult.corrected !== trimmed,
-      suggestions: bolorResult.suggestions,
-      mode: bolorResult.changed
-        ? usedOpenAI
-          ? "openai-then-bolor"
-          : "bolor-suggest"
-        : usedOpenAI
-          ? "openai-galig"
-          : "none",
+      corrected: trimmed,
+      changed: false,
+      suggestions: [],
+      mode: "none",
     };
   } catch (error) {
     console.error("checkText failed:", error);

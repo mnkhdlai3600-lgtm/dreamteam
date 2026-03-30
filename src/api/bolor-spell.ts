@@ -8,6 +8,10 @@ export const suggestWithBolor = async (text: string): Promise<string[]> => {
     bolorKey ? `${bolorKey.slice(0, 6)}...` : "missing",
   );
 
+  if (!bolorKey) {
+    throw new Error("VITE_BOLORSPELL_API_KEY missing");
+  }
+
   const response = await fetch("https://api.chimege.com/v1.2/spell-suggest", {
     method: "POST",
     headers: {
@@ -34,5 +38,9 @@ export const suggestWithBolor = async (text: string): Promise<string[]> => {
     throw new Error("Bolor JSON parse error");
   }
 
-  return Array.isArray(data) ? data.filter((v) => typeof v === "string") : [];
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return data.filter((item): item is string => typeof item === "string");
 };
