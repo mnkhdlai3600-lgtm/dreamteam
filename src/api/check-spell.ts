@@ -1,4 +1,4 @@
-import { suggestWithBolor } from "./bolor-spell";
+import { checkWordWithBolor, suggestWithBolor } from "./bolor-spell";
 import { correctWithOpenAI } from "./openai";
 
 export type CheckResult = {
@@ -6,6 +6,7 @@ export type CheckResult = {
   corrected: string;
   changed: boolean;
   suggestions: string[];
+  errorWords: string[];
   mode: "openai-galig" | "bolor-suggest" | "none";
 };
 
@@ -32,16 +33,27 @@ const isPureCyrillicWord = (text: string) => /^[А-Яа-яӨөҮүЁё]+$/.test(
 
 const normalizeWord = (text: string) => text.trim().toLowerCase();
 
-const bolorCache = new Map<string, string[]>();
+const bolorCheckCache = new Map<string, string[]>();
+const bolorSuggestCache = new Map<string, string[]>();
 
-const getBolorSuggestions = async (word: string) => {
-  if (bolorCache.has(word)) {
-    return bolorCache.get(word) ?? [];
+const getBolorCheckResult = async (word: string) => {
+  if (bolorCheckCache.has(word)) {
+    return bolorCheckCache.get(word) ?? [];
   }
 
-  const suggestions = await suggestWithBolor(word);
-  bolorCache.set(word, suggestions);
-  return suggestions;
+  const result = await checkWordWithBolor(word);
+  bolorCheckCache.set(word, result);
+  return result;
+};
+
+const getBolorSuggestions = async (word: string) => {
+  if (bolorSuggestCache.has(word)) {
+    return bolorSuggestCache.get(word) ?? [];
+  }
+
+  const result = await suggestWithBolor(word);
+  bolorSuggestCache.set(word, result);
+  return result;
 };
 
 export const checkText = async (text: string): Promise<CheckResult> => {
@@ -53,47 +65,47 @@ export const checkText = async (text: string): Promise<CheckResult> => {
       corrected: text,
       changed: false,
       suggestions: [],
+      errorWords: [],
       mode: "none",
     };
   }
 
   try {
     if (isPureCyrillicWord(trimmed)) {
-      const suggestions = await getBolorSuggestions(trimmed);
+      const misspelledWords = await getBolorCheckResult(trimmed);
+      const originalNormalized = normalizeWord(trimmed);
 
-      if (suggestions.length === 0) {
+      const matchedErrorWords = misspelledWords.filter(
+        (item) => normalizeWord(item) === originalNormalized,
+      );
+
+      const isMisspelled = matchedErrorWords.length > 0;
+
+      if (!isMisspelled) {
         return {
           original: text,
           corrected: trimmed,
           changed: false,
           suggestions: [],
+          errorWords: [],
           mode: "none",
         };
       }
 
-      const originalNormalized = normalizeWord(trimmed);
-      const containsOriginal = suggestions.some(
-        (item) => normalizeWord(item) === originalNormalized,
+      const suggestions = await getBolorSuggestions(trimmed);
+      const filteredSuggestions = suggestions.filter(
+        (item) => normalizeWord(item) !== originalNormalized,
       );
 
-      if (containsOriginal) {
-        return {
-          original: text,
-          corrected: trimmed,
-          changed: false,
-          suggestions,
-          mode: "none",
-        };
-      }
-
-      const corrected = suggestions[0] ?? trimmed;
+      const corrected = filteredSuggestions[0] ?? trimmed;
 
       return {
         original: text,
         corrected,
         changed: corrected !== trimmed,
-        suggestions,
-        mode: corrected !== trimmed ? "bolor-suggest" : "none",
+        suggestions: filteredSuggestions,
+        errorWords: [trimmed],
+        mode: filteredSuggestions.length > 0 ? "bolor-suggest" : "none",
       };
     }
 
@@ -105,6 +117,7 @@ export const checkText = async (text: string): Promise<CheckResult> => {
         corrected,
         changed: corrected !== trimmed,
         suggestions: corrected !== trimmed ? [corrected] : [],
+        errorWords: corrected !== trimmed ? [trimmed] : [],
         mode: corrected !== trimmed ? "openai-galig" : "none",
       };
     }
@@ -114,6 +127,7 @@ export const checkText = async (text: string): Promise<CheckResult> => {
       corrected: trimmed,
       changed: false,
       suggestions: [],
+      errorWords: [],
       mode: "none",
     };
   } catch (error) {
@@ -124,6 +138,7 @@ export const checkText = async (text: string): Promise<CheckResult> => {
       corrected: text,
       changed: false,
       suggestions: [],
+      errorWords: [],
       mode: "none",
     };
   }

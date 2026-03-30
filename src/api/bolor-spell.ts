@@ -1,28 +1,28 @@
-export const suggestWithBolor = async (text: string): Promise<string[]> => {
-  const bolorKey = import.meta.env.VITE_BOLORSPELL_API_KEY;
+const BOLOR_BASE_URL = "https://api.chimege.com/v1.2";
 
-  console.log("BOLOR KEY EXISTS:", !!bolorKey);
-  console.log("BOLOR KEY LENGTH:", bolorKey?.length ?? 0);
-  console.log(
-    "BOLOR KEY PREVIEW:",
-    bolorKey ? `${bolorKey.slice(0, 6)}...` : "missing",
-  );
+const getBolorKey = () => {
+  const bolorKey = import.meta.env.VITE_BOLORSPELL_API_KEY;
 
   if (!bolorKey) {
     throw new Error("VITE_BOLORSPELL_API_KEY missing");
   }
 
-  const response = await fetch("https://api.chimege.com/v1.2/spell-suggest", {
+  return bolorKey;
+};
+
+const postPlainText = async (endpoint: string, text: string) => {
+  const response = await fetch(`${BOLOR_BASE_URL}/${endpoint}`, {
     method: "POST",
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      token: bolorKey,
+      token: getBolorKey(),
     },
     body: text,
   });
 
   const rawText = await response.text();
 
+  console.log("BOLOR ENDPOINT:", endpoint);
   console.log("BOLOR INPUT:", text);
   console.log("BOLOR STATUS:", response.status);
   console.log("BOLOR RAW:", rawText);
@@ -35,7 +35,7 @@ export const suggestWithBolor = async (text: string): Promise<string[]> => {
   try {
     data = JSON.parse(rawText);
   } catch {
-    throw new Error("Bolor JSON parse error");
+    throw new Error(`Bolor JSON parse error on ${endpoint}`);
   }
 
   if (!Array.isArray(data)) {
@@ -43,4 +43,12 @@ export const suggestWithBolor = async (text: string): Promise<string[]> => {
   }
 
   return data.filter((item): item is string => typeof item === "string");
+};
+
+export const checkWordWithBolor = async (text: string): Promise<string[]> => {
+  return postPlainText("spell-check-short", text);
+};
+
+export const suggestWithBolor = async (text: string): Promise<string[]> => {
+  return postPlainText("spell-suggest", text);
 };

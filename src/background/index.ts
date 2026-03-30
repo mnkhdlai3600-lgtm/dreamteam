@@ -61,6 +61,7 @@ chrome.runtime.onMessage.addListener(
                 corrected: "",
                 changed: false,
                 suggestions: [],
+                errorWords: [],
                 mode: "none",
               },
             });

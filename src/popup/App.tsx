@@ -1,5 +1,5 @@
-import { ThemeSettings } from "../ThemeSettings";
-import { useThemeSettings } from "../theme-provider";
+import { ThemeSettings } from "../theme/ThemeSettings";
+import { useThemeSettings } from "../theme/theme-provider";
 
 function StatusCard() {
   const { resolvedTheme } = useThemeSettings();

@@ -9,6 +9,7 @@ export type CheckResult = {
   corrected: string;
   changed: boolean;
   suggestions: string[];
+  errorWords: string[];
   mode: CheckMode;
 };
 

@@ -1,5 +1,5 @@
-const DEFAULT_ACCENT = "#8b5cf6";
-const INDICATOR_ID = "bolor-ai-indicator";
+import { getAccentColorValue } from "../../lib/chrome/storage";
+import { DEFAULT_ACCENT_COLOR, INDICATOR_ID } from "../../lib/constants";
 
 export const isValidHexColor = (value: unknown): value is string => {
   return (
@@ -10,12 +10,11 @@ export const isValidHexColor = (value: unknown): value is string => {
 
 export const getAccentColor = async (): Promise<string> => {
   try {
-    const result = await chrome.storage.local.get(["accentColor"]);
-    const savedAccent = result.accentColor;
-    return isValidHexColor(savedAccent) ? savedAccent : DEFAULT_ACCENT;
+    const savedAccent = await getAccentColorValue();
+    return isValidHexColor(savedAccent) ? savedAccent : DEFAULT_ACCENT_COLOR;
   } catch (error) {
     console.error("Failed to load accent color:", error);
-    return DEFAULT_ACCENT;
+    return DEFAULT_ACCENT_COLOR;
   }
 };
 
@@ -32,17 +31,20 @@ export const watchAccentColorChanges = () => {
   if (!chrome?.storage?.onChanged) return;
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== "local" || !changes.accentColor) return;
+    if (areaName !== "sync" || !changes.accentColor) return;
 
     const nextColor = isValidHexColor(changes.accentColor.newValue)
       ? changes.accentColor.newValue
-      : DEFAULT_ACCENT;
+      : DEFAULT_ACCENT_COLOR;
 
     applyAccentColorToRoot(nextColor);
 
     const indicator = document.getElementById(
       INDICATOR_ID,
     ) as HTMLDivElement | null;
-    if (indicator) indicator.style.background = nextColor;
+
+    if (indicator) {
+      indicator.style.background = nextColor;
+    }
   });
 };
