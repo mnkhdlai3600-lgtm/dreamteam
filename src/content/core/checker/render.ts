@@ -6,7 +6,7 @@ import {
   selectedSuggestionIndex,
 } from "../state";
 import { applySuggestion } from "./apply";
-import { createIndicator, removeIndicator } from "../../ui/indicator-render";
+import { createIndicator, removeIndicator } from "../../ui";
 
 export const renderSuggestionIndicator = () => {
   if (!activeElement) {

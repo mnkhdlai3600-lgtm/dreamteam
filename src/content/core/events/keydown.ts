@@ -13,7 +13,7 @@ import {
 } from "../state";
 import { resolveActiveEditable } from "../../dom/editable";
 import { removeIndicator } from "../../ui/indicator";
-import { updateIndicatorPosition } from "../../ui/indicator-render";
+import { updateIndicatorPosition } from "../../ui/indicator/indicator-render";
 
 const stopEvent = (event: KeyboardEvent) => {
   event.preventDefault();

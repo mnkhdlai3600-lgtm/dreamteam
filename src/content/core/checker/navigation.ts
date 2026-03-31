@@ -1,4 +1,4 @@
-import { refreshSuggestionDropdownHighlight } from "../../ui/dropdown";
+import { refreshSuggestionDropdownHighlight } from "../../ui";
 import {
   latestSuggestions,
   selectedSuggestionIndex,

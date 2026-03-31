@@ -3,7 +3,6 @@ import { getElementText } from "../../dom";
 import { shouldSkipHandleInput } from "../guard";
 import {
   activeElement,
-  cancelPendingRequests,
   clearSuggestion,
   debounceTimer,
   lastAppliedText,
@@ -12,16 +11,9 @@ import {
   setIsSuggestionLoading,
   setLastCheckedText,
 } from "../state";
-import { checkText } from "./request";
-import { renderSuggestionIndicator } from "./render";
+import { checkText } from "../checker/request";
+import { renderSuggestionIndicator } from "../checker/render";
 import { INPUT_DEBOUNCE_MS } from "../../constants";
-
-const clearPendingDebounce = () => {
-  if (debounceTimer) {
-    window.clearTimeout(debounceTimer);
-    setDebounceTimer(null);
-  }
-};
 
 export const handleInput = () => {
   if (shouldSkipHandleInput() || !activeElement) return;
@@ -31,17 +23,10 @@ export const handleInput = () => {
   const text = getElementText(activeElement).trim();
 
   if (!text) {
-    clearPendingDebounce();
-    cancelPendingRequests();
-    setIsSuggestionLoading(false);
     clearSuggestion();
     removeIndicator();
     return;
   }
-
-  // typing үед dot үргэлж харагдаж байг
-  renderSuggestionIndicator();
-  updateIndicatorPosition(activeElement);
 
   if (
     (lastAppliedText && text === lastAppliedText.trim()) ||
@@ -50,18 +35,19 @@ export const handleInput = () => {
     return;
   }
 
-  clearPendingDebounce();
+  if (debounceTimer) {
+    window.clearTimeout(debounceTimer);
+  }
 
   setDebounceTimer(
     window.setTimeout(() => {
       if (shouldSkipHandleInput() || !activeElement) return;
 
+      updateIndicatorPosition(activeElement);
+
       const latestText = getElementText(activeElement).trim();
 
       if (!latestText) {
-        clearPendingDebounce();
-        cancelPendingRequests();
-        setIsSuggestionLoading(false);
         clearSuggestion();
         removeIndicator();
         return;
@@ -75,25 +61,15 @@ export const handleInput = () => {
       }
 
       setIsSuggestionLoading(true);
-      setLastCheckedText(latestText);
       renderSuggestionIndicator();
       updateIndicatorPosition(activeElement);
+      setLastCheckedText(latestText);
 
       void checkText(latestText).finally(() => {
-        if (!activeElement) {
-          removeIndicator();
-          return;
-        }
-
-        const currentText = getElementText(activeElement).trim();
-
-        if (!currentText) {
-          clearSuggestion();
-          removeIndicator();
-          return;
-        }
-
         setIsSuggestionLoading(false);
+
+        if (!activeElement) return;
+
         renderSuggestionIndicator();
         updateIndicatorPosition(activeElement);
       });

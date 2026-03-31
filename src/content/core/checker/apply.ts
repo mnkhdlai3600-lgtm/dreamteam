@@ -1,11 +1,16 @@
-import { createIndicator, removeIndicator } from "../../ui/indicator";
-import { removeSuggestionDropdown } from "../../ui/dropdown";
+import {
+  createIndicator,
+  removeIndicator,
+  removeSuggestionDropdown,
+} from "../../ui";
 import {
   getElementText,
   resolveActiveEditable,
   verifyElementText,
-} from "../../dom/editable";
-import { setElementText } from "../../dom/replace";
+  setElementText,
+  clearHighlights,
+  flashCorrectedWord,
+} from "../../dom";
 import { shouldSkipApplySuggestion } from "../guard";
 import {
   clearSuggestion,
@@ -19,8 +24,6 @@ import {
   setLatestSuggestion,
   setSuppressInputUntil,
 } from "../state";
-
-import { clearHighlights, flashCorrectedWord } from "../../dom/highlight";
 import {
   APPLY_GUARD_MS,
   APPLY_RESET_MS,

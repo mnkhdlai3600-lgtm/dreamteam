@@ -1,5 +1,5 @@
-import { removeIndicator } from "../../ui/indicator";
-import { sendCheckTextMessage } from "../../../lib/chrome/runtime";
+import { removeIndicator, updateIndicatorPosition } from "../../ui";
+import { sendCheckTextMessage } from "../../../lib/chrome";
 import {
   activeElement,
   clearSuggestion,
@@ -12,9 +12,7 @@ import {
 } from "../state";
 import { renderSuggestionIndicator } from "./render";
 import { buildDisplaySuggestions, uniqueSuggestions } from "./utils";
-import { clearHighlights, highlightErrorWord } from "../../dom/highlight";
-import { getElementText } from "../../dom/editable";
-import { updateIndicatorPosition } from "../../ui/indicator-render";
+import { clearHighlights, highlightErrorWord, getElementText } from "../../dom";
 
 export const checkText = async (text: string) => {
   const trimmed = text.trim();

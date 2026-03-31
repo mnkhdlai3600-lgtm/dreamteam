@@ -1,5 +1,8 @@
 import { getEditableElement, getEventEditableTarget } from "../../dom/editable";
-import { createIndicator, removeIndicator } from "../../ui/indicator-render";
+import {
+  createIndicator,
+  removeIndicator,
+} from "../../ui/indicator/indicator-render";
 import { clearSuggestion, setActiveElement } from "../state";
 
 export const registerFocusEvents = () => {
