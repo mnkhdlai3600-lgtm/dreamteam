@@ -2,10 +2,14 @@ import { getDotStylesByTheme, getResolvedTheme } from "./indicator-theme";
 
 export type IndicatorState = "idle" | "loading";
 
+let dotRenderToken = 0;
+
 export const buildDotIndicator = async (
   container: HTMLDivElement,
   state: IndicatorState,
 ) => {
+  const renderToken = ++dotRenderToken;
+
   container.dataset.mode = "dot";
   container.style.position = "fixed";
   container.style.zIndex = "999999";
@@ -23,7 +27,13 @@ export const buildDotIndicator = async (
   container.style.opacity = "1";
   container.style.transform = "none";
 
-  container.appendChild(await createBreathingDot(state));
+  const dotNode = await createBreathingDot(state);
+
+  if (renderToken !== dotRenderToken) return;
+  if (!container.isConnected) return;
+  if (container.dataset.mode !== "dot") return;
+
+  container.replaceChildren(dotNode);
 };
 
 const createBreathingDot = async (state: IndicatorState) => {

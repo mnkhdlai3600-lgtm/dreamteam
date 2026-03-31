@@ -1,9 +1,15 @@
-import { getEventEditableTarget, isMessengerSite } from "../../dom";
+import { getEventEditableTarget } from "../../dom";
 import { updateIndicatorPosition } from "../../ui";
+import { renderSuggestionIndicator } from "../checker/render";
 import { shouldSkipHandleInput } from "../guard";
-import { activeElement, setActiveElement } from "../state";
+import {
+  hasSuggestions,
+  isSuggestionLoading,
+  setActiveElement,
+  setSuggestionPhase,
+  clearSuggestion,
+} from "../state";
 import { handleInput } from "./input-handlers";
-import { ignoredKey } from "./input-helpers";
 
 export const registerInputEvents = () => {
   document.addEventListener(
@@ -15,36 +21,27 @@ export const registerInputEvents = () => {
       if (!target) return;
 
       setActiveElement(target);
-      updateIndicatorPosition(target);
+
+      const hadSuggestionUi = hasSuggestions() || isSuggestionLoading;
+
+      if (hadSuggestionUi) {
+        clearSuggestion();
+        setSuggestionPhase("typing");
+        void renderSuggestionIndicator();
+      } else {
+        setSuggestionPhase("typing");
+        updateIndicatorPosition(target);
+      }
+
       handleInput();
     },
     true,
   );
 
-  document.addEventListener(
-    "keyup",
-    (event) => {
-      if (isMessengerSite() || shouldSkipHandleInput()) return;
+  // intentionally disabled
+  // keyup makes the typing dot restart every key
+  // and interferes with debounce -> suggest flow
 
-      const keyboardEvent = event as KeyboardEvent;
-      if (ignoredKey(keyboardEvent)) return;
-
-      const target = getEventEditableTarget(event);
-      if (!target) return;
-
-      setActiveElement(target);
-      updateIndicatorPosition(target);
-      handleInput();
-    },
-    true,
-  );
-
-  document.addEventListener(
-    "selectionchange",
-    () => {
-      if (!activeElement) return;
-      updateIndicatorPosition(activeElement);
-    },
-    true,
-  );
+  // intentionally disabled
+  // selectionchange makes the indicator jump around
 };

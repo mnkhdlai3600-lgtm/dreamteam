@@ -3,9 +3,7 @@ import { sendCheckTextMessage } from "../../../lib/chrome";
 import {
   activeElement,
   clearSuggestion,
-  isLatestRequest,
   lastAppliedText,
-  nextRequestId,
   setLatestSuggestion,
   setLatestSuggestions,
   setSelectedSuggestionIndex,
@@ -29,14 +27,8 @@ export const checkText = async (text: string) => {
     return;
   }
 
-  const currentRequestId = nextRequestId();
-
   try {
     const response = await sendCheckTextMessage(trimmed);
-
-    if (!isLatestRequest(currentRequestId)) {
-      return;
-    }
 
     if (!response?.success || !response.data) {
       throw new Error(response?.error || "Check failed");
@@ -93,8 +85,6 @@ export const checkText = async (text: string) => {
     renderSuggestionIndicator();
     updateIndicatorPosition(activeElement);
   } catch (error) {
-    if (!isLatestRequest(currentRequestId)) return;
-
     console.error("checkText error:", error);
     clearSuggestion();
 

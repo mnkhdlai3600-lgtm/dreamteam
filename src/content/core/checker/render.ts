@@ -4,6 +4,7 @@ import {
   isSuggestionLoading,
   latestSuggestions,
   selectedSuggestionIndex,
+  suggestionPhase,
 } from "../state";
 import { applySuggestion } from "./apply";
 import { createIndicator, removeIndicator } from "../../ui";
@@ -14,7 +15,16 @@ export const renderSuggestionIndicator = () => {
     return;
   }
 
-  if (hasSuggestions() && latestSuggestions.length > 0) {
+  if (suggestionPhase === "loading" || isSuggestionLoading) {
+    void createIndicator(activeElement, "", { state: "loading" });
+    return;
+  }
+
+  if (
+    suggestionPhase === "suggesting" &&
+    hasSuggestions() &&
+    latestSuggestions.length > 0
+  ) {
     void createIndicator(activeElement, "", {
       suggestions: latestSuggestions,
       selectedIndex: selectedSuggestionIndex,
@@ -22,11 +32,6 @@ export const renderSuggestionIndicator = () => {
         applySuggestion();
       },
     });
-    return;
-  }
-
-  if (isSuggestionLoading) {
-    void createIndicator(activeElement, "", { state: "loading" });
     return;
   }
 

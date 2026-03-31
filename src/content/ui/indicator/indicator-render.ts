@@ -15,32 +15,74 @@ type IndicatorOptions = {
   state?: IndicatorState;
 };
 
+let indicatorRenderToken = 0;
+
+const getDotAnchorRect = (target: HTMLElement) => {
+  const caretRect = getCaretClientRect(target);
+  const fallbackRect = target.getBoundingClientRect();
+
+  return caretRect ?? fallbackRect;
+};
+
+const positionDotIndicator = (
+  target: HTMLElement,
+  container: HTMLDivElement,
+) => {
+  const anchorRect = getDotAnchorRect(target);
+  const viewportPadding = 8;
+  const gap = 8;
+
+  let top = anchorRect.top + anchorRect.height / 2 - container.offsetHeight / 2;
+  let left = anchorRect.right + gap;
+
+  if (left + container.offsetWidth > window.innerWidth - viewportPadding) {
+    left = anchorRect.left - container.offsetWidth - gap;
+  }
+
+  if (left < viewportPadding) {
+    left = viewportPadding;
+  }
+
+  if (top < viewportPadding) {
+    top = viewportPadding;
+  }
+
+  if (top + container.offsetHeight > window.innerHeight - viewportPadding) {
+    top = window.innerHeight - container.offsetHeight - viewportPadding;
+  }
+
+  container.style.top = `${top}px`;
+  container.style.left = `${left}px`;
+};
+
+const positionSuggestionIndicator = (
+  target: HTMLElement,
+  container: HTMLDivElement,
+) => {
+  const anchorRect = target.getBoundingClientRect();
+
+  const { top, left } = getIndicatorPosition(
+    anchorRect,
+    container.offsetWidth,
+    container.offsetHeight,
+    true,
+  );
+
+  container.style.top = `${top}px`;
+  container.style.left = `${left}px`;
+};
+
 const positionIndicator = (
   target: HTMLElement,
   container: HTMLDivElement,
   hasSuggestionList: boolean,
 ) => {
-  const caretRect =
-    getCaretClientRect(target) ?? target.getBoundingClientRect();
-
-  const { top, left } = getIndicatorPosition(
-    caretRect,
-    container.offsetWidth,
-    container.offsetHeight,
-    hasSuggestionList,
-  );
-
   if (hasSuggestionList) {
-    container.style.top = `${top}px`;
-    container.style.left = `${left}px`;
+    positionSuggestionIndicator(target, container);
     return;
   }
 
-  const dotOffsetX = 10;
-  const dotOffsetY = 0;
-
-  container.style.top = `${top + dotOffsetY}px`;
-  container.style.left = `${left + dotOffsetX}px`;
+  positionDotIndicator(target, container);
 };
 
 export const updateIndicatorPosition = (target: HTMLElement) => {
@@ -61,6 +103,8 @@ export const createIndicator = async (
   _text = "",
   options: IndicatorOptions = {},
 ) => {
+  const renderToken = ++indicatorRenderToken;
+
   const suggestions = options.suggestions ?? [];
   const hasSuggestionList = suggestions.length > 0;
   const selectedIndex = options.selectedIndex ?? 0;
@@ -76,19 +120,32 @@ export const createIndicator = async (
   clearChildren(container);
 
   if (hasSuggestionList) {
+    container.dataset.mode = "suggestion";
+
     buildSuggestionIndicator(
       container,
       suggestions,
       selectedIndex,
       options.onSuggestionClick,
     );
-  } else {
-    await buildDotIndicator(container, state);
+
+    if (renderToken !== indicatorRenderToken) return;
+    positionIndicator(target, container, true);
+
+    if (previousMode !== "suggestion") {
+      animateCardOpen(container);
+    }
+
+    return;
   }
 
-  positionIndicator(target, container, hasSuggestionList);
+  container.dataset.mode = "dot";
 
-  if (hasSuggestionList && previousMode !== "suggestion") {
-    animateCardOpen(container);
-  }
+  await buildDotIndicator(container, state);
+
+  if (renderToken !== indicatorRenderToken) return;
+  if (!container.isConnected) return;
+  if (container.dataset.mode !== "dot") return;
+
+  positionIndicator(target, container, false);
 };

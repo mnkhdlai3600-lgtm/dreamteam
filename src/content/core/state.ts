@@ -16,6 +16,9 @@ export let isComposing = false;
 export let isSuggestionMenuOpen = false;
 export let isSuggestionLoading = false;
 
+export type SuggestionPhase = "idle" | "typing" | "loading" | "suggesting";
+export let suggestionPhase: SuggestionPhase = "idle";
+
 export const setActiveElement = (element: HTMLElement | null) => {
   activeElement = element;
 };
@@ -70,6 +73,7 @@ export const clearSuggestion = () => {
   selectedSuggestionIndex = 0;
   isSuggestionMenuOpen = false;
   isSuggestionLoading = false;
+  suggestionPhase = "idle";
 };
 
 export const setIsApplyingSuggestion = (value: boolean) => {
@@ -119,6 +123,10 @@ export const setIsSuggestionMenuOpen = (value: boolean) => {
 
 export const setIsSuggestionLoading = (value: boolean) => {
   isSuggestionLoading = value;
+};
+
+export const setSuggestionPhase = (value: SuggestionPhase) => {
+  suggestionPhase = value;
 };
 
 export const hasSuggestions = () => latestSuggestions.length > 0;

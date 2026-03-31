@@ -1,4 +1,4 @@
-import { removeIndicator, updateIndicatorPosition } from "../../ui";
+import { updateIndicatorPosition } from "../../ui";
 import { getElementText } from "../../dom";
 import { shouldSkipHandleInput } from "../guard";
 import {
@@ -7,9 +7,12 @@ import {
   debounceTimer,
   lastAppliedText,
   lastCheckedText,
+  nextRequestId,
+  isLatestRequest,
   setDebounceTimer,
   setIsSuggestionLoading,
   setLastCheckedText,
+  setSuggestionPhase,
 } from "../state";
 import { checkText } from "../checker/request";
 import { renderSuggestionIndicator } from "../checker/render";
@@ -24,20 +27,21 @@ export const handleInput = () => {
 
   if (!text) {
     clearSuggestion();
-    removeIndicator();
+    setSuggestionPhase("idle");
+    void renderSuggestionIndicator();
+    updateIndicatorPosition(activeElement);
     return;
   }
 
-  if (
-    (lastAppliedText && text === lastAppliedText.trim()) ||
-    text === lastCheckedText
-  ) {
+  if (lastAppliedText && text === lastAppliedText.trim()) {
     return;
   }
 
   if (debounceTimer) {
     window.clearTimeout(debounceTimer);
   }
+
+  const requestId = nextRequestId();
 
   setDebounceTimer(
     window.setTimeout(() => {
@@ -49,28 +53,50 @@ export const handleInput = () => {
 
       if (!latestText) {
         clearSuggestion();
-        removeIndicator();
+        setSuggestionPhase("idle");
+        void renderSuggestionIndicator();
+        updateIndicatorPosition(activeElement);
         return;
       }
 
-      if (
-        (lastAppliedText && latestText === lastAppliedText.trim()) ||
-        latestText === lastCheckedText
-      ) {
+      if (lastAppliedText && latestText === lastAppliedText.trim()) {
+        return;
+      }
+
+      if (latestText === lastCheckedText) {
         return;
       }
 
       setIsSuggestionLoading(true);
-      renderSuggestionIndicator();
+      setSuggestionPhase("loading");
+      void renderSuggestionIndicator();
       updateIndicatorPosition(activeElement);
-      setLastCheckedText(latestText);
 
       void checkText(latestText).finally(() => {
+        if (!isLatestRequest(requestId)) return;
+
         setIsSuggestionLoading(false);
 
         if (!activeElement) return;
 
-        renderSuggestionIndicator();
+        const currentText = getElementText(activeElement).trim();
+
+        if (currentText !== latestText) {
+          if (!currentText) {
+            clearSuggestion();
+            setSuggestionPhase("idle");
+          } else {
+            setSuggestionPhase("typing");
+          }
+
+          void renderSuggestionIndicator();
+          updateIndicatorPosition(activeElement);
+          return;
+        }
+
+        setLastCheckedText(latestText);
+        setSuggestionPhase("suggesting");
+        void renderSuggestionIndicator();
         updateIndicatorPosition(activeElement);
       });
     }, INPUT_DEBOUNCE_MS),
