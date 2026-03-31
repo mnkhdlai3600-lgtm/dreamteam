@@ -2,23 +2,43 @@ export const getIndicatorPosition = (
   rect: DOMRect,
   popupWidth: number,
   popupHeight: number,
+  hasSuggestionList = false,
 ) => {
-  const spacing = 10;
+  const viewportPadding = 8;
 
-  let top = rect.bottom + spacing;
-  let left = rect.left + rect.width / 2 - popupWidth / 2;
+  let top = hasSuggestionList
+    ? rect.bottom + 2
+    : rect.top + rect.height / 2 - popupHeight / 2;
 
-  if (top + popupHeight > window.innerHeight - 8) {
-    top = rect.top - popupHeight - spacing;
+  let left = hasSuggestionList ? rect.left - 8 : rect.left - popupWidth / 2 + 1;
+
+  if (hasSuggestionList) {
+    if (left + popupWidth > window.innerWidth - viewportPadding) {
+      left = rect.right - popupWidth;
+    }
+
+    if (left < viewportPadding) {
+      left = viewportPadding;
+    }
+
+    if (top + popupHeight > window.innerHeight - viewportPadding) {
+      top = rect.top - popupHeight - 8;
+    }
+  } else {
+    if (left + popupWidth > window.innerWidth - viewportPadding) {
+      left = window.innerWidth - popupWidth - viewportPadding;
+    }
+
+    if (left < viewportPadding) {
+      left = viewportPadding;
+    }
   }
 
-  if (top < 8) top = 8;
+  if (top < viewportPadding) top = viewportPadding;
 
-  if (left + popupWidth > window.innerWidth - 8) {
-    left = window.innerWidth - popupWidth - 8;
+  if (top + popupHeight > window.innerHeight - viewportPadding) {
+    top = window.innerHeight - popupHeight - viewportPadding;
   }
-
-  if (left < 8) left = 8;
 
   return { top, left };
 };

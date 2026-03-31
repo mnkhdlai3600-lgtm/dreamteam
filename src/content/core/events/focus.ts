@@ -10,7 +10,7 @@ export const registerFocusEvents = () => {
       if (!target) return;
 
       setActiveElement(target);
-      void createIndicator(target);
+      void createIndicator(target, "", { state: "idle" });
     },
     true,
   );

@@ -13,14 +13,10 @@ type ThemeMode = "light" | "dark" | "system";
 type ThemeContextType = {
   themeMode: ThemeMode;
   resolvedTheme: "light" | "dark";
-  accentColor: string;
   setThemeMode: (mode: ThemeMode) => void;
-  setAccentColor: (color: string) => void;
 };
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
-
-const DEFAULT_ACCENT = "#8b5cf6";
 
 const getSystemTheme = (): "light" | "dark" => {
   if (typeof window === "undefined") return "light";
@@ -31,19 +27,13 @@ const getSystemTheme = (): "light" | "dark" => {
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
-  const [accentColor, setAccentColorState] = useState<string>(DEFAULT_ACCENT);
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const result = await chrome.storage.local.get([
-          "themeMode",
-          "accentColor",
-        ]);
-
+        const result = await chrome.storage.local.get(["themeMode"]);
         const savedThemeMode = result.themeMode as ThemeMode | undefined;
-        const savedAccent = result.accentColor as string | undefined;
 
         if (
           savedThemeMode === "light" ||
@@ -51,10 +41,6 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
           savedThemeMode === "system"
         ) {
           setThemeModeState(savedThemeMode);
-        }
-
-        if (savedAccent) {
-          setAccentColorState(savedAccent);
         }
       } catch (error) {
         console.error("Failed to load theme settings:", error);
@@ -72,7 +58,6 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       const root = document.documentElement;
       root.classList.remove("light", "dark");
       root.classList.add(nextTheme);
-      root.style.setProperty("--accent-color", accentColor);
     };
 
     applyTheme();
@@ -90,7 +75,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       media.removeEventListener("change", handleChange);
     };
-  }, [themeMode, accentColor]);
+  }, [themeMode]);
 
   const setThemeMode = async (mode: ThemeMode) => {
     setThemeModeState(mode);
@@ -102,26 +87,13 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const setAccentColor = async (color: string) => {
-    setAccentColorState(color);
-    document.documentElement.style.setProperty("--accent-color", color);
-
-    try {
-      await chrome.storage.local.set({ accentColor: color });
-    } catch (error) {
-      console.error("Failed to save accent color:", error);
-    }
-  };
-
   const value = useMemo(
     () => ({
       themeMode,
       resolvedTheme,
-      accentColor,
       setThemeMode,
-      setAccentColor,
     }),
-    [themeMode, resolvedTheme, accentColor],
+    [themeMode, resolvedTheme],
   );
 
   return (

@@ -1,5 +1,5 @@
-import { ThemeSettings } from "../theme/ThemeSettings";
 import { useThemeSettings } from "../theme/theme-provider";
+import { ThemeSettings } from "../theme/theme-settings";
 
 function StatusCard() {
   const { resolvedTheme } = useThemeSettings();
@@ -27,6 +27,10 @@ function StatusCard() {
 
       <p style={{ marginTop: "10px", fontSize: "12px", opacity: 0.7 }}>
         Active theme: {resolvedTheme}
+      </p>
+
+      <p style={{ marginTop: "6px", fontSize: "12px", opacity: 0.7 }}>
+        Hotkey: Option + Space
       </p>
     </div>
   );

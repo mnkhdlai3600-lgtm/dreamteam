@@ -1,8 +1,25 @@
-import { handleInput } from "../checker/checker";
+import { removeIndicator } from "../../ui/indicator";
+import {
+  getEventEditableTarget,
+  getElementText,
+  isMessengerSite,
+} from "../../dom/editable";
 import { shouldSkipHandleInput } from "../guard";
-import { isMessengerSite, getEventEditableTarget } from "../../dom/editable";
-import { setActiveElement } from "../state";
-import { PASTE_DELAY_MS } from "../../../lib/constants";
+import {
+  activeElement,
+  clearSuggestion,
+  debounceTimer,
+  lastAppliedText,
+  lastCheckedText,
+  setActiveElement,
+  setDebounceTimer,
+  setIsSuggestionLoading,
+  setLastCheckedText,
+} from "../state";
+import { INPUT_DEBOUNCE_MS } from "../../../lib/constants";
+import { checkText } from "../checker/request";
+import { renderSuggestionIndicator } from "../checker/render";
+import { updateIndicatorPosition } from "../../ui/indicator-render";
 
 const ignoredKey = (event: KeyboardEvent) => {
   if (event.altKey && event.code === "Space") return true;
@@ -12,6 +29,66 @@ const ignoredKey = (event: KeyboardEvent) => {
     event.key === "ArrowDown" ||
     event.key === "Enter" ||
     event.key === "Escape"
+  );
+};
+
+export const handleInput = () => {
+  if (shouldSkipHandleInput() || !activeElement) return;
+
+  updateIndicatorPosition(activeElement);
+
+  const text = getElementText(activeElement).trim();
+
+  if (!text) {
+    clearSuggestion();
+    removeIndicator();
+    return;
+  }
+
+  if (
+    (lastAppliedText && text === lastAppliedText.trim()) ||
+    text === lastCheckedText
+  ) {
+    return;
+  }
+
+  if (debounceTimer) window.clearTimeout(debounceTimer);
+
+  setDebounceTimer(
+    window.setTimeout(() => {
+      if (shouldSkipHandleInput() || !activeElement) return;
+
+      updateIndicatorPosition(activeElement);
+
+      const latestText = getElementText(activeElement).trim();
+
+      if (!latestText) {
+        clearSuggestion();
+        removeIndicator();
+        return;
+      }
+
+      if (
+        (lastAppliedText && latestText === lastAppliedText.trim()) ||
+        latestText === lastCheckedText
+      ) {
+        return;
+      }
+
+      setIsSuggestionLoading(true);
+      renderSuggestionIndicator();
+      updateIndicatorPosition(activeElement);
+      setLastCheckedText(latestText);
+
+      void checkText(latestText).finally(() => {
+        setIsSuggestionLoading(false);
+
+        if (activeElement) {
+          renderSuggestionIndicator();
+          updateIndicatorPosition(activeElement);
+        }
+      });
+    }, INPUT_DEBOUNCE_MS),
   );
 };
 
@@ -25,6 +102,7 @@ export const registerInputEvents = () => {
       if (!target) return;
 
       setActiveElement(target);
+      updateIndicatorPosition(target);
       handleInput();
     },
     true,
@@ -42,21 +120,17 @@ export const registerInputEvents = () => {
       if (!target) return;
 
       setActiveElement(target);
+      updateIndicatorPosition(target);
       handleInput();
     },
     true,
   );
 
   document.addEventListener(
-    "paste",
-    (event) => {
-      if (shouldSkipHandleInput()) return;
-
-      const target = getEventEditableTarget(event);
-      if (!target) return;
-
-      setActiveElement(target);
-      window.setTimeout(() => handleInput(), PASTE_DELAY_MS);
+    "selectionchange",
+    () => {
+      if (!activeElement) return;
+      updateIndicatorPosition(activeElement);
     },
     true,
   );

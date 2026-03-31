@@ -4,10 +4,16 @@ import {
   selectNextSuggestion,
   selectPreviousSuggestion,
 } from "../checker/checker";
+import { renderSuggestionIndicator } from "../checker/render";
 import { shouldSkipHotkey } from "../guard";
-import { clearSuggestion, setActiveElement } from "../state";
+import {
+  clearSuggestion,
+  isSuggestionLoading,
+  setActiveElement,
+} from "../state";
 import { resolveActiveEditable } from "../../dom/editable";
 import { removeIndicator } from "../../ui/indicator";
+import { updateIndicatorPosition } from "../../ui/indicator-render";
 
 const stopEvent = (event: KeyboardEvent) => {
   event.preventDefault();
@@ -20,24 +26,33 @@ export const registerKeydownEvents = () => {
     "keydown",
     (event) => {
       const resolved = resolveActiveEditable();
-      if (resolved) setActiveElement(resolved);
+      if (resolved) {
+        setActiveElement(resolved);
+        updateIndicatorPosition(resolved);
+      }
 
-      const canNavigateSuggestions = Boolean(resolved && hasOpenSuggestions());
+      const canNavigateSuggestions = Boolean(
+        resolved && (hasOpenSuggestions() || isSuggestionLoading),
+      );
 
       if (canNavigateSuggestions) {
-        if (event.key === "ArrowDown") {
+        if (event.key === "ArrowDown" && !isSuggestionLoading) {
           stopEvent(event);
           selectNextSuggestion();
+          renderSuggestionIndicator();
+          if (resolved) updateIndicatorPosition(resolved);
           return;
         }
 
-        if (event.key === "ArrowUp") {
+        if (event.key === "ArrowUp" && !isSuggestionLoading) {
           stopEvent(event);
           selectPreviousSuggestion();
+          renderSuggestionIndicator();
+          if (resolved) updateIndicatorPosition(resolved);
           return;
         }
 
-        if (event.key === "Enter") {
+        if (event.key === "Enter" && !isSuggestionLoading) {
           stopEvent(event);
           applySuggestion();
           return;

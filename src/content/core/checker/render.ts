@@ -1,36 +1,34 @@
-import { createIndicator } from "../../ui/indicator";
 import {
   activeElement,
   hasSuggestions,
-  latestSuggestion,
+  isSuggestionLoading,
   latestSuggestions,
   selectedSuggestionIndex,
-  selectSuggestionByIndex,
 } from "../state";
 import { applySuggestion } from "./apply";
+import { createIndicator, removeIndicator } from "../../ui/indicator-render";
 
 export const renderSuggestionIndicator = () => {
-  if (!activeElement || !hasSuggestions()) return;
+  if (!activeElement) {
+    removeIndicator();
+    return;
+  }
 
-  if (latestSuggestions.length > 1) {
-    void createIndicator(activeElement, "↑ ↓ сонгоно • Enter хэрэглэнэ", {
+  if (hasSuggestions() && latestSuggestions.length > 0) {
+    void createIndicator(activeElement, "", {
       suggestions: latestSuggestions,
       selectedIndex: selectedSuggestionIndex,
-      onSuggestionClick: (index) => {
-        const chosen = latestSuggestions[index];
-        if (!chosen) return;
-
-        selectSuggestionByIndex(index);
+      onSuggestionClick: () => {
         applySuggestion();
       },
     });
     return;
   }
 
-  if (latestSuggestion) {
-    void createIndicator(
-      activeElement,
-      `Option+Space дарж засна: ${latestSuggestion}`,
-    );
+  if (isSuggestionLoading) {
+    void createIndicator(activeElement, "", { state: "loading" });
+    return;
   }
+
+  void createIndicator(activeElement, "", { state: "idle" });
 };

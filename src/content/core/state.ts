@@ -14,6 +14,7 @@ export let suppressInputUntil = 0;
 export let requestCounter = 0;
 export let isComposing = false;
 export let isSuggestionMenuOpen = false;
+export let isSuggestionLoading = false;
 
 export const setActiveElement = (element: HTMLElement | null) => {
   activeElement = element;
@@ -29,6 +30,18 @@ export const setLatestSuggestion = (value: string | null) => {
 
 export const setLatestSuggestions = (value: string[]) => {
   latestSuggestions = value;
+
+  if (!value.length) {
+    latestSuggestion = null;
+    selectedSuggestionIndex = 0;
+    return;
+  }
+
+  if (selectedSuggestionIndex >= value.length) {
+    selectedSuggestionIndex = 0;
+  }
+
+  latestSuggestion = value[selectedSuggestionIndex] ?? value[0] ?? null;
 };
 
 export const setSelectedSuggestionIndex = (value: number) => {
@@ -56,6 +69,7 @@ export const clearSuggestion = () => {
   latestSuggestions = [];
   selectedSuggestionIndex = 0;
   isSuggestionMenuOpen = false;
+  isSuggestionLoading = false;
 };
 
 export const setIsApplyingSuggestion = (value: boolean) => {
@@ -87,12 +101,24 @@ export const nextRequestId = () => {
   return requestCounter;
 };
 
+export const isLatestRequest = (requestId: number) => {
+  return requestId === requestCounter;
+};
+
+export const cancelPendingRequests = () => {
+  requestCounter += 1;
+};
+
 export const setIsComposing = (value: boolean) => {
   isComposing = value;
 };
 
 export const setIsSuggestionMenuOpen = (value: boolean) => {
   isSuggestionMenuOpen = value;
+};
+
+export const setIsSuggestionLoading = (value: boolean) => {
+  isSuggestionLoading = value;
 };
 
 export const hasSuggestions = () => latestSuggestions.length > 0;

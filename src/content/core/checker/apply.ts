@@ -1,4 +1,5 @@
-import { createIndicator } from "../../ui/indicator";
+import { createIndicator, removeIndicator } from "../../ui/indicator";
+import { removeSuggestionDropdown } from "../../ui/dropdown";
 import {
   getElementText,
   resolveActiveEditable,
@@ -12,6 +13,7 @@ import {
   setActiveElement,
   setIsApplyingHotkey,
   setIsApplyingSuggestion,
+  setIsSuggestionLoading,
   setLastAppliedText,
   setLastCheckedText,
   setLatestSuggestion,
@@ -39,8 +41,12 @@ export const applySuggestion = () => {
   setLatestSuggestion(null);
   setSuppressInputUntil(Date.now() + SUPPRESS_INPUT_MS);
   setIsApplyingSuggestion(true);
+  setIsSuggestionLoading(false);
 
   try {
+    removeSuggestionDropdown();
+    removeIndicator();
+
     const ok = setElementText(resolved, suggestion);
 
     if (!ok) {
