@@ -1,5 +1,3 @@
-"use client";
-
 import React, {
   createContext,
   useContext,
@@ -7,19 +5,26 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import {
+  getThemeMode,
+  setThemeMode as saveThemeMode,
+} from "../lib/chrome/storage";
 
-type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = "light" | "dark" | "system";
+
+type ResolvedTheme = "light" | "dark";
 
 type ThemeContextType = {
   themeMode: ThemeMode;
-  resolvedTheme: "light" | "dark";
+  resolvedTheme: ResolvedTheme;
   setThemeMode: (mode: ThemeMode) => void;
 };
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
-const getSystemTheme = (): "light" | "dark" => {
+const getSystemTheme = (): ResolvedTheme => {
   if (typeof window === "undefined") return "light";
+
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
@@ -27,61 +32,91 @@ const getSystemTheme = (): "light" | "dark" => {
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const loadSettings = async () => {
+    let isMounted = true;
+
+    const loadTheme = async () => {
       try {
-        const result = await chrome.storage.local.get(["themeMode"]);
-        const savedThemeMode = result.themeMode as ThemeMode | undefined;
+        const savedTheme = await getThemeMode();
+
+        if (!isMounted) return;
 
         if (
-          savedThemeMode === "light" ||
-          savedThemeMode === "dark" ||
-          savedThemeMode === "system"
+          savedTheme === "light" ||
+          savedTheme === "dark" ||
+          savedTheme === "system"
         ) {
-          setThemeModeState(savedThemeMode);
+          setThemeModeState(savedTheme);
+        } else {
+          setThemeModeState("system");
         }
       } catch (error) {
-        console.error("Failed to load theme settings:", error);
+        console.error("Failed to load theme mode:", error);
+        if (isMounted) {
+          setThemeModeState("system");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoaded(true);
+        }
       }
     };
 
-    loadSettings();
+    loadTheme();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
+    const root = document.documentElement;
+
     const applyTheme = () => {
       const nextTheme = themeMode === "system" ? getSystemTheme() : themeMode;
+
       setResolvedTheme(nextTheme);
 
-      const root = document.documentElement;
       root.classList.remove("light", "dark");
       root.classList.add(nextTheme);
+      root.setAttribute("data-theme", nextTheme);
     };
 
     applyTheme();
 
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    if (typeof window === "undefined") return;
 
-    const handleChange = () => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const handleSystemThemeChange = () => {
       if (themeMode === "system") {
         applyTheme();
       }
     };
 
-    media.addEventListener("change", handleChange);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleSystemThemeChange);
+    } else {
+      mediaQuery.addListener(handleSystemThemeChange);
+    }
 
     return () => {
-      media.removeEventListener("change", handleChange);
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", handleSystemThemeChange);
+      } else {
+        mediaQuery.removeListener(handleSystemThemeChange);
+      }
     };
   }, [themeMode]);
 
-  const setThemeMode = async (mode: ThemeMode) => {
+  const handleSetThemeMode = async (mode: ThemeMode) => {
     setThemeModeState(mode);
 
     try {
-      await chrome.storage.local.set({ themeMode: mode });
+      await saveThemeMode(mode);
     } catch (error) {
       console.error("Failed to save theme mode:", error);
     }
@@ -91,10 +126,14 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     () => ({
       themeMode,
       resolvedTheme,
-      setThemeMode,
+      setThemeMode: handleSetThemeMode,
     }),
     [themeMode, resolvedTheme],
   );
+
+  if (!isLoaded) {
+    return null;
+  }
 
   return (
     <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
@@ -103,8 +142,10 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const useThemeSettings = () => {
   const context = useContext(ThemeContext);
+
   if (!context) {
     throw new Error("useThemeSettings must be used inside ThemeProvider");
   }
+
   return context;
 };

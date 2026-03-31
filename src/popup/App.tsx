@@ -6,32 +6,16 @@ function StatusCard() {
 
   return (
     <div className="card">
-      <h1 style={{ margin: 0, fontSize: "20px" }}>Bolor AI</h1>
+      <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 800 }}>Bolor AI</h1>
 
-      <p style={{ marginTop: "10px", fontSize: "14px", lineHeight: 1.5 }}>
+      <p style={{ marginTop: "10px", fontSize: "15px", lineHeight: 1.6 }}>
         Монгол галигийг Кирилл болгох, алдаа шалгах extension.
       </p>
 
-      <div
-        style={{
-          marginTop: "12px",
-          padding: "10px",
-          borderRadius: "10px",
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          fontSize: "14px",
-        }}
-      >
-        Status: Ready
-      </div>
+      <div className="status-box">Status: Ready</div>
 
-      <p style={{ marginTop: "10px", fontSize: "12px", opacity: 0.7 }}>
-        Active theme: {resolvedTheme}
-      </p>
-
-      <p style={{ marginTop: "6px", fontSize: "12px", opacity: 0.7 }}>
-        Hotkey: Option + Space
-      </p>
+      <p className="meta-text">Active theme: {resolvedTheme}</p>
+      <p className="meta-text">Hotkey: Option + Space</p>
     </div>
   );
 }
@@ -41,7 +25,7 @@ export default function App() {
     <div className="app-shell">
       <div
         style={{
-          width: "320px",
+          width: "340px",
           display: "grid",
           gap: "12px",
         }}

@@ -1,8 +1,9 @@
-import { INDICATOR_ID } from "../../lib/constants";
+import { INDICATOR_ID } from "../constants";
 import { getCaretClientRect } from "../dom/selection";
 import { getIndicatorPosition } from "./indicator-position";
 
 type IndicatorState = "idle" | "loading";
+type ResolvedTheme = "light" | "dark";
 
 type IndicatorOptions = {
   suggestions?: string[];
@@ -17,9 +18,79 @@ const PANEL_BORDER = "1px solid rgba(255,255,255,0.08)";
 const ITEM_HOVER = "rgba(255,255,255,0.08)";
 const ITEM_SELECTED = "rgba(255,255,255,0.14)";
 const SUBTLE_TEXT = "rgba(255,255,255,0.65)";
+const THEME_MODE_KEY = "themeMode";
 
 const clearChildren = (el: HTMLElement) => {
   while (el.firstChild) el.removeChild(el.firstChild);
+};
+
+const getSystemResolvedTheme = (): ResolvedTheme => {
+  if (typeof window === "undefined") return "light";
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+};
+
+const getSavedThemeMode = async (): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!chrome?.storage?.sync) {
+      resolve("system");
+      return;
+    }
+
+    chrome.storage.sync.get([THEME_MODE_KEY], (result) => {
+      const savedTheme = result[THEME_MODE_KEY];
+
+      if (
+        savedTheme === "light" ||
+        savedTheme === "dark" ||
+        savedTheme === "system"
+      ) {
+        resolve(savedTheme);
+        return;
+      }
+
+      resolve("system");
+    });
+  });
+};
+
+const getResolvedTheme = async (): Promise<ResolvedTheme> => {
+  try {
+    const savedTheme = await getSavedThemeMode();
+
+    if (savedTheme === "dark") return "dark";
+    if (savedTheme === "light") return "light";
+
+    return getSystemResolvedTheme();
+  } catch (error) {
+    console.error("Failed to get theme mode:", error);
+    return getSystemResolvedTheme();
+  }
+};
+
+const getDotStylesByTheme = (theme: ResolvedTheme) => {
+  if (theme === "dark") {
+    return {
+      background: "#ffffff",
+      border: "2px solid rgba(17, 24, 39, 0.18)",
+      shadowIdle: "0 4px 12px rgba(255,255,255,0.18)",
+      shadowLoading:
+        "0 0 0 0 rgba(255,255,255,0.24), 0 4px 14px rgba(255,255,255,0.22)",
+      idleOpacityMin: 0.55,
+      idleOpacityMax: 1,
+    };
+  }
+
+  return {
+    background: "#4b5563",
+    border: "2px solid rgba(255,255,255,0.92)",
+    shadowIdle: "0 4px 12px rgba(0,0,0,0.18)",
+    shadowLoading: "0 0 0 0 rgba(75,85,99,0.22), 0 4px 14px rgba(0,0,0,0.20)",
+    idleOpacityMin: 0.45,
+    idleOpacityMax: 0.82,
+  };
 };
 
 const animateCardOpen = (element: HTMLElement) => {
@@ -42,7 +113,7 @@ const animateCardOpen = (element: HTMLElement) => {
   );
 };
 
-const createBreathingDot = (state: IndicatorState) => {
+const createBreathingDot = async (state: IndicatorState) => {
   const wrapper = document.createElement("div");
   wrapper.style.width = "18px";
   wrapper.style.height = "18px";
@@ -51,16 +122,17 @@ const createBreathingDot = (state: IndicatorState) => {
   wrapper.style.justifyContent = "center";
   wrapper.style.pointerEvents = "none";
 
+  const resolvedTheme = await getResolvedTheme();
+  const dotTheme = getDotStylesByTheme(resolvedTheme);
+
   const dot = document.createElement("div");
   dot.style.width = state === "loading" ? "9px" : "7px";
   dot.style.height = state === "loading" ? "9px" : "7px";
   dot.style.borderRadius = "999px";
-  dot.style.background = "#111827";
-  dot.style.border = "2px solid rgba(255,255,255,0.9)";
+  dot.style.background = dotTheme.background;
+  dot.style.border = dotTheme.border;
   dot.style.boxShadow =
-    state === "loading"
-      ? "0 0 0 0 rgba(17,24,39,0.28), 0 4px 14px rgba(0,0,0,0.20)"
-      : "0 4px 12px rgba(0,0,0,0.18)";
+    state === "loading" ? dotTheme.shadowLoading : dotTheme.shadowIdle;
 
   dot.animate(
     state === "loading"
@@ -70,9 +142,9 @@ const createBreathingDot = (state: IndicatorState) => {
           { transform: "scale(0.9)", opacity: 0.55 },
         ]
       : [
-          { transform: "scale(0.94)", opacity: 0.45 },
-          { transform: "scale(1.08)", opacity: 0.82 },
-          { transform: "scale(0.94)", opacity: 0.45 },
+          { transform: "scale(0.94)", opacity: dotTheme.idleOpacityMin },
+          { transform: "scale(1.08)", opacity: dotTheme.idleOpacityMax },
+          { transform: "scale(0.94)", opacity: dotTheme.idleOpacityMin },
         ],
     {
       duration: state === "loading" ? 900 : 1600,
@@ -85,7 +157,7 @@ const createBreathingDot = (state: IndicatorState) => {
   return wrapper;
 };
 
-const buildDotIndicator = (
+const buildDotIndicator = async (
   container: HTMLDivElement,
   state: IndicatorState,
 ) => {
@@ -106,7 +178,7 @@ const buildDotIndicator = (
   container.style.opacity = "1";
   container.style.transform = "none";
 
-  container.appendChild(createBreathingDot(state));
+  container.appendChild(await createBreathingDot(state));
 };
 
 const createSuggestionButton = (
@@ -288,7 +360,7 @@ export const createIndicator = async (
       options.onSuggestionClick,
     );
   } else {
-    buildDotIndicator(container, state);
+    await buildDotIndicator(container, state);
   }
 
   positionIndicator(target, container, hasSuggestionList);

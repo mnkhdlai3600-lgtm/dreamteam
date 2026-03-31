@@ -16,10 +16,11 @@ import {
   setIsSuggestionLoading,
   setLastCheckedText,
 } from "../state";
-import { INPUT_DEBOUNCE_MS } from "../../../lib/constants";
+
 import { checkText } from "../checker/request";
 import { renderSuggestionIndicator } from "../checker/render";
 import { updateIndicatorPosition } from "../../ui/indicator-render";
+import { INPUT_DEBOUNCE_MS } from "../../constants";
 
 const ignoredKey = (event: KeyboardEvent) => {
   if (event.altKey && event.code === "Space") return true;

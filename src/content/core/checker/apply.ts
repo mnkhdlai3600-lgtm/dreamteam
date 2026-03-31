@@ -19,12 +19,13 @@ import {
   setLatestSuggestion,
   setSuppressInputUntil,
 } from "../state";
+
+import { clearHighlights, flashCorrectedWord } from "../../dom/highlight";
 import {
   APPLY_GUARD_MS,
   APPLY_RESET_MS,
   SUPPRESS_INPUT_MS,
-} from "../../../lib/constants";
-import { clearHighlights, flashCorrectedWord } from "../../dom/highlight";
+} from "../../constants";
 
 export const applySuggestion = () => {
   const resolved = resolveActiveEditable();

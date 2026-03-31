@@ -12,10 +12,11 @@ import {
   setIsSuggestionLoading,
   setLastCheckedText,
 } from "../state";
-import { INPUT_DEBOUNCE_MS } from "../../../lib/constants";
+
 import { checkText } from "./request";
 import { renderSuggestionIndicator } from "./render";
 import { updateIndicatorPosition } from "../../ui/indicator-render";
+import { INPUT_DEBOUNCE_MS } from "../../constants";
 
 const clearPendingDebounce = () => {
   if (debounceTimer) {

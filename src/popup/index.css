@@ -1,57 +1,105 @@
-:root {
-  --bg: #ffffff;
-  --text: #111111;
-  --card: #f5f5f5;
-  --border: #e5e5e5;
-}
-
-:root.dark {
-  --bg: #0f1115;
-  --text: #f3f4f6;
-  --card: #1a1d24;
-  --border: #2a2f3a;
-}
-
 html,
-body,
-#root {
+body {
   margin: 0;
   padding: 0;
   min-width: 360px;
   min-height: 320px;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Arial, sans-serif;
+  font-family: Inter, Arial, sans-serif;
 }
 
-body {
+:root,
+html.light,
+html[data-theme="light"] {
+  --bg: #f5f7fb;
+  --text: #111827;
+  --muted: #6b7280;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --select-bg: #ffffff;
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  color-scheme: light;
+}
+
+html.dark,
+html[data-theme="dark"] {
+  --bg: #0b1020;
+  --text: #f3f4f6;
+  --muted: #9ca3af;
+  --card: #151b2d;
+  --border: #283046;
+  --select-bg: #0f172a;
+  --shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+body,
+#root {
   background: var(--bg);
   color: var(--text);
+}
+
+#root {
+  min-width: 360px;
+  min-height: 320px;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 .app-shell {
   width: 100%;
-  min-height: 100vh;
+  min-height: 100%;
   background: var(--bg);
   color: var(--text);
-  padding: 16px;
-  box-sizing: border-box;
+  padding: 14px;
 }
 
 .card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 16px;
+  box-shadow: var(--shadow);
 }
 
 .select {
   width: 100%;
-  background: var(--card);
+  background: var(--select-bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px 12px;
-  box-sizing: border-box;
   font-size: 14px;
+  outline: none;
+}
+
+.select:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+h1,
+h2,
+p {
+  color: inherit;
+}
+
+label {
+  color: var(--muted);
+}
+
+.status-box {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.meta-text {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
 }

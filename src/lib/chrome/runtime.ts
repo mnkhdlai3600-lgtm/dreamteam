@@ -1,5 +1,6 @@
 import type { CheckResponse } from "../../content/core/types";
-import { CHECK_TEXT_MESSAGE } from "../constants";
+
+const CHECK_TEXT_MESSAGE = "CHECK_TEXT";
 
 export const sendCheckTextMessage = async (
   text: string,

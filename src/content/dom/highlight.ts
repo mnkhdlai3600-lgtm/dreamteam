@@ -2,8 +2,6 @@ import { isMessengerSite } from "./editable";
 
 const ERROR_CLASS = "bolor-error";
 const CORRECTED_CLASS = "bolor-corrected";
-const ERROR_LINE_CLASS = "bolor-error-line";
-const CORRECTED_LINE_CLASS = "bolor-corrected-line";
 const MARK_ATTR = "data-bolor-highlight";
 
 const escapeRegExp = (value: string) =>
@@ -41,15 +39,11 @@ export const canInlineHighlight = (root: HTMLElement) => {
   return true;
 };
 
-const clearLineState = (root: HTMLElement) => {
-  const target = getHighlightTarget(root);
-  target.classList.remove(ERROR_LINE_CLASS);
-  target.classList.remove(CORRECTED_LINE_CLASS);
-};
-
 export const clearHighlights = (root: HTMLElement) => {
   const target = getHighlightTarget(root);
-  clearLineState(target);
+
+  target.classList.remove("bolor-error-line");
+  target.classList.remove("bolor-corrected-line");
 
   const marks = target.querySelectorAll<HTMLElement>(`[${MARK_ATTR}="true"]`);
 
@@ -107,30 +101,22 @@ const wrapFirstMatch = (root: HTMLElement, word: string, className: string) => {
 
 export const highlightErrorWord = (root: HTMLElement, word: string) => {
   const target = getHighlightTarget(root);
-
   clearHighlights(target);
 
-  const inlineApplied = wrapFirstMatch(target, word, ERROR_CLASS);
-  if (inlineApplied) return true;
-
-  target.classList.add(ERROR_LINE_CLASS);
-  return true;
+  return wrapFirstMatch(target, word, ERROR_CLASS);
 };
 
 export const flashCorrectedWord = (root: HTMLElement, word: string) => {
   const target = getHighlightTarget(root);
-
   clearHighlights(target);
 
   const inlineApplied = wrapFirstMatch(target, word, CORRECTED_CLASS);
 
-  if (!inlineApplied) {
-    target.classList.add(CORRECTED_LINE_CLASS);
+  if (inlineApplied) {
+    window.setTimeout(() => {
+      clearHighlights(target);
+    }, 900);
   }
 
-  window.setTimeout(() => {
-    clearHighlights(target);
-  }, 900);
-
-  return true;
+  return inlineApplied;
 };

@@ -1,4 +1,4 @@
-import { useThemeSettings } from "./theme-provider";
+import { useThemeSettings, type ThemeMode } from "./theme-provider";
 
 export const ThemeSettings = () => {
   const { themeMode, resolvedTheme, setThemeMode } = useThemeSettings();
@@ -20,9 +20,7 @@ export const ThemeSettings = () => {
         <select
           className="select"
           value={themeMode}
-          onChange={(e) =>
-            setThemeMode(e.target.value as "light" | "dark" | "system")
-          }
+          onChange={(e) => setThemeMode(e.target.value as ThemeMode)}
         >
           <option value="system">System</option>
           <option value="light">Light</option>
