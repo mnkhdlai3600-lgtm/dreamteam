@@ -1,5 +1,10 @@
 import { getIndicatorPosition } from "./indicator-position";
-import { animateCardOpen, buildSuggestionIndicator } from "./indicator-card";
+import {
+  animateCardOpen,
+  buildSuggestionIndicator,
+  updateSuggestionSelection,
+  updateSuggestionHint,
+} from "./indicator-card";
 import {
   clearChildren,
   getOrCreateIndicator,
@@ -12,6 +17,7 @@ type IndicatorOptions = {
   suggestions?: string[];
   selectedIndex?: number;
   onSuggestionClick?: (index: number) => void;
+  onFixAll?: () => void;
   state?: IndicatorState;
 };
 
@@ -171,6 +177,23 @@ const positionIndicator = (
   positionDotIndicator(target, container);
 };
 
+const canReuseSuggestionContainer = (
+  container: HTMLDivElement,
+  suggestions: string[],
+) => {
+  if (container.dataset.mode !== "suggestion") return false;
+
+  const currentItems = Array.from(
+    container.querySelectorAll<HTMLButtonElement>(
+      '[data-suggestion-item="true"]',
+    ),
+  ).map((item) => item.textContent ?? "");
+
+  if (currentItems.length !== suggestions.length) return false;
+
+  return currentItems.every((item, index) => item === suggestions[index]);
+};
+
 export const updateIndicatorPosition = (target: HTMLElement) => {
   const container = document.getElementById(
     "bolor-ai-indicator",
@@ -204,14 +227,18 @@ export const createIndicator = async (
   const previousMode = container.dataset.mode;
 
   if (hasSuggestionList) {
-    container.dataset.mode = "suggestion";
-    clearChildren(container);
-
     const theme = await getResolvedTheme();
     if (renderToken !== indicatorRenderToken) return;
     if (!container.isConnected) return;
-    if (container.dataset.mode !== "suggestion") return;
 
+    if (canReuseSuggestionContainer(container, suggestions)) {
+      updateSuggestionSelection(container, selectedIndex, theme);
+      updateSuggestionHint(container, selectedIndex);
+      positionIndicator(target, container, true);
+      return;
+    }
+
+    container.dataset.mode = "suggestion";
     clearChildren(container);
 
     buildSuggestionIndicator(
@@ -220,6 +247,7 @@ export const createIndicator = async (
       selectedIndex,
       theme,
       options.onSuggestionClick,
+      options.onFixAll,
     );
 
     if (renderToken !== indicatorRenderToken) return;

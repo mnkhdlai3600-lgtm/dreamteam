@@ -9,7 +9,12 @@ import {
   setSelectedSuggestionIndex,
 } from "../state";
 import { renderSuggestionIndicator } from "./render";
-import { clearHighlights, highlightErrorWord, getElementText } from "../../dom";
+import {
+  clearHighlights,
+  highlightErrorWords,
+  getElementText,
+} from "../../dom";
+import { clearHighlightedErrors, setHighlightedErrors } from "../error-state";
 
 const uniqueSuggestions = (items: string[]) => {
   const seen = new Set<string>();
@@ -58,12 +63,14 @@ export const checkText = async (text: string) => {
 
   if (!trimmed) {
     clearSuggestion();
+    clearHighlightedErrors();
     removeIndicator();
     return;
   }
 
   if (lastAppliedText && trimmed === lastAppliedText.trim()) {
     clearSuggestion();
+    clearHighlightedErrors();
     removeIndicator();
     return;
   }
@@ -110,11 +117,11 @@ export const checkText = async (text: string) => {
     );
 
     const hasSentenceCorrection = corrected.length > 0 && corrected !== trimmed;
-
     const hasSuggestions = displaySuggestions.length > 0;
     const hasErrors = errorWords.length > 0;
 
     clearHighlights(activeElement);
+    clearHighlightedErrors();
 
     if (!hasSentenceCorrection && !hasSuggestions && !hasErrors) {
       clearSuggestion();
@@ -123,10 +130,9 @@ export const checkText = async (text: string) => {
       return;
     }
 
-    const firstErrorWord = errorWords[0];
-
-    if (firstErrorWord) {
-      highlightErrorWord(activeElement, firstErrorWord);
+    if (hasErrors) {
+      const items = highlightErrorWords(activeElement, errorWords);
+      setHighlightedErrors(items);
     }
 
     if (hasSuggestions) {
@@ -146,6 +152,7 @@ export const checkText = async (text: string) => {
   } catch (error) {
     console.error("checkText error:", error);
     clearSuggestion();
+    clearHighlightedErrors();
 
     if (activeElement) {
       clearHighlights(activeElement);

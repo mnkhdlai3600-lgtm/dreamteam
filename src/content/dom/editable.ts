@@ -5,15 +5,29 @@ export const isMessengerSite = () => {
   return host.includes("messenger.com") || host.includes("facebook.com");
 };
 
+const isTextInputType = (type: string) => {
+  return ["text", "search", "email", "url", "tel"].includes(type);
+};
+
+const isContentEditableLike = (el: HTMLElement) => {
+  const contentEditableAttr = el.getAttribute("contenteditable");
+
+  return (
+    el.isContentEditable ||
+    contentEditableAttr === "true" ||
+    contentEditableAttr === "plaintext-only"
+  );
+};
+
 export const isEditableElement = (el: Element): el is HTMLElement => {
   if (!(el instanceof HTMLElement)) return false;
   if (el instanceof HTMLTextAreaElement) return true;
 
   if (el instanceof HTMLInputElement) {
-    return ["text", "search", "email", "url", "tel"].includes(el.type);
+    return isTextInputType(el.type);
   }
 
-  return el.isContentEditable || el.getAttribute("role") === "textbox";
+  return isContentEditableLike(el) || el.getAttribute("role") === "textbox";
 };
 
 export const getMessengerEditorRoot = (
@@ -25,9 +39,15 @@ export const getMessengerEditorRoot = (
     [
       '[contenteditable="true"][role="textbox"]',
       '[role="textbox"][contenteditable="true"]',
+      '[contenteditable="plaintext-only"][role="textbox"]',
+      '[role="textbox"][contenteditable="plaintext-only"]',
+      '[contenteditable][role="textbox"]',
       '[contenteditable="true"][data-lexical-editor="true"]',
       '[data-lexical-editor="true"][contenteditable="true"]',
+      '[contenteditable="plaintext-only"][data-lexical-editor="true"]',
+      '[data-lexical-editor="true"][contenteditable="plaintext-only"]',
       '[aria-label][contenteditable="true"][role="textbox"]',
+      '[aria-label][contenteditable="plaintext-only"][role="textbox"]',
     ].join(","),
   );
 
@@ -55,6 +75,8 @@ export const getEditableElement = (
       'input[type="url"]',
       'input[type="tel"]',
       '[contenteditable="true"]',
+      '[contenteditable="plaintext-only"]',
+      "[contenteditable]",
       '[role="textbox"]',
     ].join(","),
   );
@@ -83,11 +105,14 @@ export const normalizeText = (text: string) =>
     .trim();
 
 export const getElementText = (el: HTMLElement) => {
-  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     return el.value;
-  if (el.isContentEditable || el.getAttribute("role") === "textbox") {
+  }
+
+  if (isContentEditableLike(el) || el.getAttribute("role") === "textbox") {
     return normalizeText(el.innerText || el.textContent || "");
   }
+
   return "";
 };
 

@@ -11,6 +11,7 @@ export const buildSuggestionIndicator = (
   selectedIndex: number,
   theme: ResolvedTheme,
   onSuggestionClick?: (index: number) => void,
+  onFixAll?: () => void,
 ) => {
   const styles = getSurfaceStylesByTheme(theme);
 
@@ -49,13 +50,21 @@ export const buildSuggestionIndicator = (
     );
   });
 
+  container.appendChild(list);
+
+  if (suggestions.length > 0 && onFixAll) {
+    const actions = document.createElement("div");
+    actions.style.padding = "0 6px 6px";
+    actions.appendChild(createFixAllButton(styles, onFixAll));
+    container.appendChild(actions);
+  }
+
   const hint = document.createElement("div");
   hint.textContent = "↑ ↓ сонгох • Enter эсвэл click";
   hint.style.padding = "6px 12px 10px";
   hint.style.fontSize = "11px";
   hint.style.color = styles.subtleText;
 
-  container.appendChild(list);
   container.appendChild(hint);
 };
 
@@ -117,6 +126,73 @@ const createSuggestionButton = (
     event.preventDefault();
     event.stopPropagation();
     onSuggestionClick?.(index);
+  });
+
+  return button;
+};
+
+export const updateSuggestionSelection = (
+  container: HTMLDivElement,
+  selectedIndex: number,
+  theme: ResolvedTheme,
+) => {
+  const styles = getSurfaceStylesByTheme(theme);
+  const items = container.querySelectorAll<HTMLButtonElement>(
+    '[data-suggestion-item="true"]',
+  );
+
+  items.forEach((item, index) => {
+    item.style.background =
+      index === selectedIndex ? styles.itemSelected : "transparent";
+  });
+};
+
+export const updateSuggestionHint = (
+  container: HTMLDivElement,
+  selectedIndex: number,
+) => {
+  container.setAttribute("data-selected-index", String(selectedIndex));
+};
+
+const createFixAllButton = (
+  styles: ReturnType<typeof getSurfaceStylesByTheme>,
+  onFixAll?: () => void,
+) => {
+  const button = document.createElement("button");
+
+  button.type = "button";
+  button.textContent = "Бүгдийг засах";
+  button.setAttribute("data-fix-all", "true");
+  button.style.border = "none";
+  button.style.outline = "none";
+  button.style.background = styles.itemSelected;
+  button.style.color = styles.panelText;
+  button.style.textAlign = "center";
+  button.style.padding = "10px 12px";
+  button.style.borderRadius = "10px";
+  button.style.cursor = "pointer";
+  button.style.fontSize = "13px";
+  button.style.fontWeight = "600";
+  button.style.width = "100%";
+  button.style.transition = "background 0.15s ease";
+
+  button.addEventListener("mouseenter", () => {
+    button.style.background = styles.itemHover;
+  });
+
+  button.addEventListener("mouseleave", () => {
+    button.style.background = styles.itemSelected;
+  });
+
+  button.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onFixAll?.();
   });
 
   return button;
