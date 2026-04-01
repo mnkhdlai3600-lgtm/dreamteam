@@ -1,24 +1,27 @@
-const PANEL_BACKGROUND = "#1f1f1f";
-const PANEL_TEXT = "#ffffff";
-const PANEL_BORDER = "1px solid rgba(255,255,255,0.08)";
-const ITEM_HOVER = "rgba(255,255,255,0.08)";
-const ITEM_SELECTED = "rgba(255,255,255,0.14)";
-const SUBTLE_TEXT = "rgba(255,255,255,0.65)";
+import {
+  getSurfaceStylesByTheme,
+  type getResolvedTheme,
+} from "./indicator-theme";
+
+type ResolvedTheme = Awaited<ReturnType<typeof getResolvedTheme>>;
 
 export const buildSuggestionIndicator = (
   container: HTMLDivElement,
   suggestions: string[],
   selectedIndex: number,
+  theme: ResolvedTheme,
   onSuggestionClick?: (index: number) => void,
 ) => {
+  const styles = getSurfaceStylesByTheme(theme);
+
   container.dataset.mode = "suggestion";
   container.style.position = "fixed";
   container.style.zIndex = "999999";
   container.style.fontFamily = "Inter, Arial, sans-serif";
-  container.style.background = PANEL_BACKGROUND;
-  container.style.color = PANEL_TEXT;
+  container.style.background = styles.panelBackground;
+  container.style.color = styles.panelText;
   container.style.pointerEvents = "auto";
-  container.style.border = PANEL_BORDER;
+  container.style.border = styles.panelBorder;
   container.style.borderRadius = "14px";
   container.style.overflow = "hidden";
   container.style.lineHeight = "1.3";
@@ -26,7 +29,7 @@ export const buildSuggestionIndicator = (
   container.style.minWidth = "220px";
   container.style.width = "auto";
   container.style.height = "auto";
-  container.style.boxShadow = "0 12px 28px rgba(0,0,0,0.28)";
+  container.style.boxShadow = styles.shadow;
   container.style.backdropFilter = "blur(8px)";
 
   const list = document.createElement("div");
@@ -40,6 +43,7 @@ export const buildSuggestionIndicator = (
         suggestion,
         index,
         selectedIndex,
+        styles,
         onSuggestionClick,
       ),
     );
@@ -49,7 +53,7 @@ export const buildSuggestionIndicator = (
   hint.textContent = "↑ ↓ сонгох • Enter эсвэл click";
   hint.style.padding = "6px 12px 10px";
   hint.style.fontSize = "11px";
-  hint.style.color = SUBTLE_TEXT;
+  hint.style.color = styles.subtleText;
 
   container.appendChild(list);
   container.appendChild(hint);
@@ -58,14 +62,8 @@ export const buildSuggestionIndicator = (
 export const animateCardOpen = (element: HTMLElement) => {
   element.animate(
     [
-      {
-        opacity: "0",
-        transform: "translateY(6px) scale(0.96)",
-      },
-      {
-        opacity: "1",
-        transform: "translateY(0px) scale(1)",
-      },
+      { opacity: "0", transform: "translateY(6px) scale(0.96)" },
+      { opacity: "1", transform: "translateY(0px) scale(1)" },
     ],
     {
       duration: 180,
@@ -79,6 +77,7 @@ const createSuggestionButton = (
   suggestion: string,
   index: number,
   selectedIndex: number,
+  styles: ReturnType<typeof getSurfaceStylesByTheme>,
   onSuggestionClick?: (index: number) => void,
 ) => {
   const button = document.createElement("button");
@@ -89,8 +88,8 @@ const createSuggestionButton = (
   button.style.border = "none";
   button.style.outline = "none";
   button.style.background =
-    index === selectedIndex ? ITEM_SELECTED : "transparent";
-  button.style.color = PANEL_TEXT;
+    index === selectedIndex ? styles.itemSelected : "transparent";
+  button.style.color = styles.panelText;
   button.style.textAlign = "left";
   button.style.padding = "10px 12px";
   button.style.borderRadius = "10px";
@@ -101,12 +100,12 @@ const createSuggestionButton = (
 
   button.addEventListener("mouseenter", () => {
     button.style.background =
-      index === selectedIndex ? ITEM_SELECTED : ITEM_HOVER;
+      index === selectedIndex ? styles.itemSelected : styles.itemHover;
   });
 
   button.addEventListener("mouseleave", () => {
     button.style.background =
-      index === selectedIndex ? ITEM_SELECTED : "transparent";
+      index === selectedIndex ? styles.itemSelected : "transparent";
   });
 
   button.addEventListener("mousedown", (event) => {

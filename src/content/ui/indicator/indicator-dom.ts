@@ -1,4 +1,4 @@
-import { INDICATOR_ID } from "../../constants";
+import { INDICATOR_ID } from "../../../lib/constants";
 
 export const clearChildren = (el: HTMLElement) => {
   while (el.firstChild) {

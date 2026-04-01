@@ -8,10 +8,7 @@ export const FOCUS_OUT_DELAY_MS = 100;
 
 export const APPLY_GUARD_MS = 400;
 export const APPLY_RESET_MS = 700;
-export const SUPPRESS_INPUT_MS = 3000;
+export const SUPPRESS_INPUT_MS = 150;
 
-export const DEFAULT_ACCENT_COLOR = "#8b5cf6";
 export const DEFAULT_THEME_MODE = "system";
-
-export const ACCENT_COLOR_KEY = "accentColor";
 export const THEME_MODE_KEY = "themeMode";

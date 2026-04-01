@@ -70,3 +70,33 @@ export const getDotStylesByTheme = (theme: ResolvedTheme) => {
     idleOpacityMax: 0.82,
   };
 };
+
+export const getSurfaceStylesByTheme = (theme: ResolvedTheme) => {
+  if (theme === "dark") {
+    return {
+      panelBackground: "rgba(28, 28, 32, 0.96)",
+      panelText: "#ffffff",
+      panelBorder: "1px solid rgba(255,255,255,0.08)",
+      itemHover: "rgba(255,255,255,0.08)",
+      itemSelected: "rgba(255,255,255,0.14)",
+      subtleText: "rgba(255,255,255,0.65)",
+      itemBorderActive: "rgba(255,255,255,0.18)",
+      spinnerTrack: "rgba(255,255,255,0.22)",
+      spinnerHead: "#ffffff",
+      shadow: "0 12px 28px rgba(0,0,0,0.28)",
+    };
+  }
+
+  return {
+    panelBackground: "rgba(255, 255, 255, 0.96)",
+    panelText: "#111827",
+    panelBorder: "1px solid rgba(17,24,39,0.08)",
+    itemHover: "rgba(17,24,39,0.05)",
+    itemSelected: "rgba(17,24,39,0.09)",
+    subtleText: "rgba(17,24,39,0.58)",
+    itemBorderActive: "rgba(17,24,39,0.12)",
+    spinnerTrack: "rgba(17,24,39,0.16)",
+    spinnerHead: "#374151",
+    shadow: "0 12px 28px rgba(0,0,0,0.14)",
+  };
+};

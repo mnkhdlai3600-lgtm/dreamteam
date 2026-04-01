@@ -9,8 +9,49 @@ import {
   setSelectedSuggestionIndex,
 } from "../state";
 import { renderSuggestionIndicator } from "./render";
-import { buildDisplaySuggestions, uniqueSuggestions } from "./utils";
 import { clearHighlights, highlightErrorWord, getElementText } from "../../dom";
+
+const uniqueSuggestions = (items: string[]) => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const item of items) {
+    const value = item.trim();
+    if (!value) continue;
+
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    result.push(value);
+  }
+
+  return result;
+};
+
+const buildDisplaySuggestions = (
+  original: string,
+  corrected: string,
+  suggestions: string[],
+) => {
+  const trimmedOriginal = original.trim();
+  const trimmedCorrected = corrected.trim();
+
+  const result: string[] = [];
+
+  if (trimmedCorrected && trimmedCorrected !== trimmedOriginal) {
+    result.push(trimmedCorrected);
+  }
+
+  for (const suggestion of suggestions) {
+    const value = suggestion.trim();
+    if (!value) continue;
+    if (value === trimmedOriginal) continue;
+    result.push(value);
+  }
+
+  return uniqueSuggestions(result);
+};
 
 export const checkText = async (text: string) => {
   const trimmed = text.trim();
@@ -31,7 +72,7 @@ export const checkText = async (text: string) => {
     const response = await sendCheckTextMessage(trimmed);
 
     if (!response?.success || !response.data) {
-      throw new Error(response?.error || "Check failed");
+      throw new Error(response?.error || "Шалгалт амжилтгүй");
     }
 
     if (!activeElement) return;
@@ -43,43 +84,61 @@ export const checkText = async (text: string) => {
     }
 
     const { data } = response;
-    const corrected = (data.corrected || "").trim();
-    const suggestions = uniqueSuggestions(
-      Array.isArray(data.suggestions) ? data.suggestions : [],
-    );
-    const errorWords = Array.isArray(data.errorWords) ? data.errorWords : [];
 
-    const { displaySuggestions, hasLatin } = buildDisplaySuggestions(
+    const corrected =
+      typeof data.corrected === "string" ? data.corrected.trim() : "";
+
+    const suggestions = uniqueSuggestions(
+      Array.isArray(data.suggestions)
+        ? data.suggestions.filter(
+            (item: unknown): item is string => typeof item === "string",
+          )
+        : [],
+    );
+
+    const errorWords = Array.isArray(data.errorWords)
+      ? data.errorWords
+          .filter((item: unknown): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : [];
+
+    const displaySuggestions = buildDisplaySuggestions(
       trimmed,
       corrected,
       suggestions,
     );
 
-    const hasRealCorrection = corrected.length > 0 && corrected !== trimmed;
-    const hasDifferentSuggestions = displaySuggestions.some(
-      (item) => item.trim() !== trimmed,
-    );
+    const hasSentenceCorrection = corrected.length > 0 && corrected !== trimmed;
 
-    const shouldSuggest = hasLatin
-      ? displaySuggestions.length > 0
-      : hasRealCorrection || hasDifferentSuggestions;
+    const hasSuggestions = displaySuggestions.length > 0;
+    const hasErrors = errorWords.length > 0;
 
     clearHighlights(activeElement);
 
-    if (!shouldSuggest) {
+    if (!hasSentenceCorrection && !hasSuggestions && !hasErrors) {
       clearSuggestion();
       renderSuggestionIndicator();
       updateIndicatorPosition(activeElement);
       return;
     }
 
-    setLatestSuggestions(displaySuggestions);
-    setSelectedSuggestionIndex(0);
-    setLatestSuggestion(displaySuggestions[0] ?? null);
+    const firstErrorWord = errorWords[0];
 
-    const firstErrorWord = errorWords[0]?.trim();
     if (firstErrorWord) {
       highlightErrorWord(activeElement, firstErrorWord);
+    }
+
+    if (hasSuggestions) {
+      setLatestSuggestions(displaySuggestions);
+      setSelectedSuggestionIndex(0);
+      setLatestSuggestion(displaySuggestions[0] ?? null);
+    } else if (hasSentenceCorrection) {
+      setLatestSuggestions([corrected]);
+      setSelectedSuggestionIndex(0);
+      setLatestSuggestion(corrected);
+    } else {
+      clearSuggestion();
     }
 
     renderSuggestionIndicator();

@@ -22,6 +22,8 @@ const countCyrillicLetters = (text: string) => {
   return matches ? matches.length : 0;
 };
 
+const hasCyrillic = (text: string) => /[А-Яа-яӨөҮүЁё]/.test(text);
+
 const isMostlyLatin = (text: string) => {
   const latinCount = countLatinLetters(text);
   const cyrillicCount = countCyrillicLetters(text);
@@ -29,9 +31,51 @@ const isMostlyLatin = (text: string) => {
   return latinCount > 0 && latinCount >= cyrillicCount;
 };
 
-const isPureCyrillicWord = (text: string) => /^[А-Яа-яӨөҮүЁё]+$/.test(text);
-
 const normalizeWord = (text: string) => text.trim().toLowerCase();
+
+const isAllUpperCase = (text: string) => /^[А-ЯӨҮЁ]+$/.test(text.trim());
+
+const isTitleCase = (text: string) => /^[А-ЯӨҮЁ][а-яөүё]+$/.test(text.trim());
+
+const applyOriginalCase = (original: string, suggestion: string) => {
+  const trimmed = suggestion.trim();
+  if (!trimmed) return suggestion;
+
+  if (isAllUpperCase(original)) {
+    return trimmed.toUpperCase();
+  }
+
+  if (isTitleCase(original)) {
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  }
+
+  return trimmed;
+};
+
+type WordToken = {
+  value: string;
+  start: number;
+  end: number;
+};
+
+const getCyrillicWordTokens = (text: string): WordToken[] => {
+  const tokens: WordToken[] = [];
+  const regex = /[А-Яа-яӨөҮүЁё]+/g;
+
+  let match: RegExpExecArray | null = regex.exec(text);
+
+  while (match) {
+    tokens.push({
+      value: match[0],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+
+    match = regex.exec(text);
+  }
+
+  return tokens;
+};
 
 const bolorCheckCache = new Map<string, string[]>();
 const bolorSuggestCache = new Map<string, string[]>();
@@ -56,6 +100,103 @@ const getBolorSuggestions = async (word: string) => {
   return result;
 };
 
+const isMisspelledWord = async (word: string) => {
+  const result = await getBolorCheckResult(word);
+  const normalized = normalizeWord(word);
+
+  return result.some((item) => normalizeWord(item) === normalized);
+};
+
+const getWordSuggestions = async (word: string) => {
+  const suggestions = await getBolorSuggestions(word);
+  const normalized = normalizeWord(word);
+
+  const filtered = suggestions.filter(
+    (item) => normalizeWord(item) !== normalized,
+  );
+
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const item of filtered) {
+    const value = item.trim();
+    if (!value) continue;
+
+    const cased = applyOriginalCase(word, value);
+    const key = cased.toLowerCase();
+
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(cased);
+  }
+
+  return result;
+};
+
+const buildSentenceByReplacingToken = (
+  text: string,
+  token: WordToken,
+  replacement: string,
+) => {
+  return text.slice(0, token.start) + replacement + text.slice(token.end);
+};
+
+const buildCorrectedSentenceFromCyrillic = async (
+  text: string,
+): Promise<CheckResult> => {
+  const tokens = getCyrillicWordTokens(text);
+
+  if (!tokens.length) {
+    return {
+      original: text,
+      corrected: text,
+      changed: false,
+      suggestions: [],
+      errorWords: [],
+      mode: "none",
+    };
+  }
+
+  for (const token of tokens) {
+    const originalWord = token.value;
+
+    if (originalWord.length <= 1) {
+      continue;
+    }
+
+    const misspelled = await isMisspelledWord(originalWord);
+
+    if (!misspelled) {
+      continue;
+    }
+
+    const wordSuggestions = await getWordSuggestions(originalWord);
+    const bestSuggestion = wordSuggestions[0];
+
+    const corrected = bestSuggestion
+      ? buildSentenceByReplacingToken(text, token, bestSuggestion)
+      : text;
+
+    return {
+      original: text,
+      corrected,
+      changed: corrected !== text,
+      suggestions: wordSuggestions,
+      errorWords: [originalWord],
+      mode: wordSuggestions.length > 0 ? "bolor-suggest" : "none",
+    };
+  }
+
+  return {
+    original: text,
+    corrected: text,
+    changed: false,
+    suggestions: [],
+    errorWords: [],
+    mode: "none",
+  };
+};
+
 export const checkText = async (text: string): Promise<CheckResult> => {
   const trimmed = cleanText(text);
 
@@ -71,44 +212,6 @@ export const checkText = async (text: string): Promise<CheckResult> => {
   }
 
   try {
-    if (isPureCyrillicWord(trimmed)) {
-      const misspelledWords = await getBolorCheckResult(trimmed);
-      const originalNormalized = normalizeWord(trimmed);
-
-      const matchedErrorWords = misspelledWords.filter(
-        (item) => normalizeWord(item) === originalNormalized,
-      );
-
-      const isMisspelled = matchedErrorWords.length > 0;
-
-      if (!isMisspelled) {
-        return {
-          original: text,
-          corrected: trimmed,
-          changed: false,
-          suggestions: [],
-          errorWords: [],
-          mode: "none",
-        };
-      }
-
-      const suggestions = await getBolorSuggestions(trimmed);
-      const filteredSuggestions = suggestions.filter(
-        (item) => normalizeWord(item) !== originalNormalized,
-      );
-
-      const corrected = filteredSuggestions[0] ?? trimmed;
-
-      return {
-        original: text,
-        corrected,
-        changed: corrected !== trimmed,
-        suggestions: filteredSuggestions,
-        errorWords: [trimmed],
-        mode: filteredSuggestions.length > 0 ? "bolor-suggest" : "none",
-      };
-    }
-
     if (isMostlyLatin(trimmed)) {
       const corrected = (await correctWithOpenAI(trimmed)).trim();
 
@@ -120,6 +223,10 @@ export const checkText = async (text: string): Promise<CheckResult> => {
         errorWords: corrected !== trimmed ? [trimmed] : [],
         mode: corrected !== trimmed ? "openai-galig" : "none",
       };
+    }
+
+    if (hasCyrillic(trimmed)) {
+      return await buildCorrectedSentenceFromCyrillic(trimmed);
     }
 
     return {

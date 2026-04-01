@@ -28,7 +28,6 @@ export const registerKeydownEvents = () => {
       const resolved = resolveActiveEditable();
       if (resolved) {
         setActiveElement(resolved);
-        updateIndicatorPosition(resolved);
       }
 
       const canNavigateSuggestions = Boolean(

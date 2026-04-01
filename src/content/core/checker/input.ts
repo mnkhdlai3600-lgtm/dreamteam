@@ -14,7 +14,7 @@ import {
 } from "../state";
 import { checkText } from "./request";
 import { renderSuggestionIndicator } from "./render";
-import { INPUT_DEBOUNCE_MS } from "../../constants";
+import { INPUT_DEBOUNCE_MS } from "../../../lib/constants";
 
 const clearPendingDebounce = () => {
   if (debounceTimer) {

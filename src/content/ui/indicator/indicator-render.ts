@@ -1,4 +1,3 @@
-import { getCaretClientRect } from "../../dom";
 import { getIndicatorPosition } from "./indicator-position";
 import { animateCardOpen, buildSuggestionIndicator } from "./indicator-card";
 import {
@@ -7,6 +6,7 @@ import {
   removeIndicator,
 } from "./indicator-dom";
 import { buildDotIndicator, type IndicatorState } from "./indicator-dot";
+import { getResolvedTheme } from "./indicator-theme";
 
 type IndicatorOptions = {
   suggestions?: string[];
@@ -17,20 +17,112 @@ type IndicatorOptions = {
 
 let indicatorRenderToken = 0;
 
-const getDotAnchorRect = (target: HTMLElement) => {
-  const caretRect = getCaretClientRect(target);
-  const fallbackRect = target.getBoundingClientRect();
+const getTextEndRectForInput = (
+  el: HTMLInputElement | HTMLTextAreaElement,
+): DOMRect => {
+  const div = document.createElement("div");
+  const style = window.getComputedStyle(el);
 
-  return caretRect ?? fallbackRect;
+  const properties = [
+    "boxSizing",
+    "width",
+    "height",
+    "overflowX",
+    "overflowY",
+    "borderTopWidth",
+    "borderRightWidth",
+    "borderBottomWidth",
+    "borderLeftWidth",
+    "paddingTop",
+    "paddingRight",
+    "paddingBottom",
+    "paddingLeft",
+    "fontStyle",
+    "fontVariant",
+    "fontWeight",
+    "fontStretch",
+    "fontSize",
+    "fontSizeAdjust",
+    "lineHeight",
+    "fontFamily",
+    "letterSpacing",
+    "textTransform",
+    "textAlign",
+    "textIndent",
+    "textDecoration",
+    "textRendering",
+    "wordSpacing",
+    "whiteSpace",
+  ] as const;
+
+  div.style.position = "fixed";
+  div.style.left = "-9999px";
+  div.style.top = "0";
+  div.style.visibility = "hidden";
+  div.style.pointerEvents = "none";
+  div.style.whiteSpace = el instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
+  div.style.wordWrap = "break-word";
+
+  for (const prop of properties) {
+    div.style[prop] = style[prop];
+  }
+
+  div.textContent = el.value ?? "";
+
+  const marker = document.createElement("span");
+  marker.textContent = "\u200b";
+  div.appendChild(marker);
+
+  document.body.appendChild(div);
+
+  const markerRect = marker.getBoundingClientRect();
+  const mirrorRect = div.getBoundingClientRect();
+  const inputRect = el.getBoundingClientRect();
+  const lineHeight = parseFloat(style.lineHeight) || inputRect.height * 0.6;
+
+  const rect = new DOMRect(
+    inputRect.left + (markerRect.left - mirrorRect.left) - el.scrollLeft,
+    inputRect.top + (markerRect.top - mirrorRect.top) - el.scrollTop,
+    1,
+    lineHeight,
+  );
+
+  document.body.removeChild(div);
+
+  return rect;
+};
+
+const getTextEndRectForEditable = (el: HTMLElement): DOMRect => {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+
+  const rects = range.getClientRects();
+  if (rects.length > 0) {
+    return rects[rects.length - 1];
+  }
+
+  return el.getBoundingClientRect();
+};
+
+const getTextEndAnchorRect = (target: HTMLElement): DOMRect => {
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement
+  ) {
+    return getTextEndRectForInput(target);
+  }
+
+  return getTextEndRectForEditable(target);
 };
 
 const positionDotIndicator = (
   target: HTMLElement,
   container: HTMLDivElement,
 ) => {
-  const anchorRect = getDotAnchorRect(target);
+  const anchorRect = getTextEndAnchorRect(target);
   const viewportPadding = 8;
-  const gap = 8;
+  const gap = 6;
 
   let top = anchorRect.top + anchorRect.height / 2 - container.offsetHeight / 2;
   let left = anchorRect.right + gap;
@@ -39,13 +131,8 @@ const positionDotIndicator = (
     left = anchorRect.left - container.offsetWidth - gap;
   }
 
-  if (left < viewportPadding) {
-    left = viewportPadding;
-  }
-
-  if (top < viewportPadding) {
-    top = viewportPadding;
-  }
+  if (left < viewportPadding) left = viewportPadding;
+  if (top < viewportPadding) top = viewportPadding;
 
   if (top + container.offsetHeight > window.innerHeight - viewportPadding) {
     top = window.innerHeight - container.offsetHeight - viewportPadding;
@@ -59,8 +146,7 @@ const positionSuggestionIndicator = (
   target: HTMLElement,
   container: HTMLDivElement,
 ) => {
-  const anchorRect = target.getBoundingClientRect();
-
+  const anchorRect = getTextEndAnchorRect(target);
   const { top, left } = getIndicatorPosition(
     anchorRect,
     container.offsetWidth,
@@ -117,19 +203,29 @@ export const createIndicator = async (
 
   const previousMode = container.dataset.mode;
 
-  clearChildren(container);
-
   if (hasSuggestionList) {
     container.dataset.mode = "suggestion";
+    clearChildren(container);
+
+    const theme = await getResolvedTheme();
+    if (renderToken !== indicatorRenderToken) return;
+    if (!container.isConnected) return;
+    if (container.dataset.mode !== "suggestion") return;
+
+    clearChildren(container);
 
     buildSuggestionIndicator(
       container,
       suggestions,
       selectedIndex,
+      theme,
       options.onSuggestionClick,
     );
 
     if (renderToken !== indicatorRenderToken) return;
+    if (!container.isConnected) return;
+    if (container.dataset.mode !== "suggestion") return;
+
     positionIndicator(target, container, true);
 
     if (previousMode !== "suggestion") {
@@ -140,6 +236,7 @@ export const createIndicator = async (
   }
 
   container.dataset.mode = "dot";
+  clearChildren(container);
 
   await buildDotIndicator(container, state);
 

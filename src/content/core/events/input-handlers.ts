@@ -6,17 +6,17 @@ import {
   clearSuggestion,
   debounceTimer,
   lastAppliedText,
-  lastCheckedText,
   nextRequestId,
   isLatestRequest,
   setDebounceTimer,
   setIsSuggestionLoading,
+  setLastAppliedText,
   setLastCheckedText,
   setSuggestionPhase,
 } from "../state";
 import { checkText } from "../checker/request";
 import { renderSuggestionIndicator } from "../checker/render";
-import { INPUT_DEBOUNCE_MS } from "../../constants";
+import { INPUT_DEBOUNCE_MS } from "../../../lib/constants";
 
 export const handleInput = () => {
   if (shouldSkipHandleInput() || !activeElement) return;
@@ -27,19 +27,25 @@ export const handleInput = () => {
 
   if (!text) {
     clearSuggestion();
+    setLastAppliedText(null);
+    setLastCheckedText("");
     setSuggestionPhase("idle");
     void renderSuggestionIndicator();
     updateIndicatorPosition(activeElement);
     return;
   }
 
-  if (lastAppliedText && text === lastAppliedText.trim()) {
-    return;
+  if (lastAppliedText && text !== lastAppliedText.trim()) {
+    setLastAppliedText(null);
   }
 
   if (debounceTimer) {
     window.clearTimeout(debounceTimer);
   }
+
+  setSuggestionPhase("typing");
+  void renderSuggestionIndicator();
+  updateIndicatorPosition(activeElement);
 
   const requestId = nextRequestId();
 
@@ -53,17 +59,19 @@ export const handleInput = () => {
 
       if (!latestText) {
         clearSuggestion();
+        setLastAppliedText(null);
+        setLastCheckedText("");
         setSuggestionPhase("idle");
         void renderSuggestionIndicator();
         updateIndicatorPosition(activeElement);
         return;
       }
 
-      if (lastAppliedText && latestText === lastAppliedText.trim()) {
-        return;
+      if (lastAppliedText && latestText !== lastAppliedText.trim()) {
+        setLastAppliedText(null);
       }
 
-      if (latestText === lastCheckedText) {
+      if (lastAppliedText && latestText === lastAppliedText.trim()) {
         return;
       }
 

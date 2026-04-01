@@ -28,7 +28,7 @@ import {
   APPLY_GUARD_MS,
   APPLY_RESET_MS,
   SUPPRESS_INPUT_MS,
-} from "../../constants";
+} from "../../../lib/constants";
 
 export const applySuggestion = () => {
   const resolved = resolveActiveEditable();

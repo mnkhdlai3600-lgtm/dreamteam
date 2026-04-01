@@ -37,11 +37,4 @@ export const registerInputEvents = () => {
     },
     true,
   );
-
-  // intentionally disabled
-  // keyup makes the typing dot restart every key
-  // and interferes with debounce -> suggest flow
-
-  // intentionally disabled
-  // selectionchange makes the indicator jump around
 };

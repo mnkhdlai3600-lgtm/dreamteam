@@ -14,24 +14,29 @@ import {
   hasDropdownAnchor,
   repositionSuggestionDropdown,
 } from "./dropdown-position";
+import {
+  getResolvedTheme,
+  getSurfaceStylesByTheme,
+} from "./indicator/indicator-theme";
 
-export const refreshSuggestionDropdownHighlight = () => {
+export const refreshSuggestionDropdownHighlight = async () => {
   const dropdown = getDropdownElement();
   if (!dropdown) return;
+
+  const theme =
+    (dropdown.dataset.theme as "light" | "dark" | undefined) ??
+    (await getResolvedTheme());
+  const styles = getSurfaceStylesByTheme(theme);
 
   const items = dropdown.querySelectorAll<HTMLElement>(
     "[data-suggestion-item]",
   );
-
   if (!items.length) return;
 
   items.forEach((item, index) => {
     const isActive = index === selectedSuggestionIndex;
-
-    item.style.background = isActive ? "rgba(255,255,255,0.12)" : "transparent";
-    item.style.borderColor = isActive
-      ? "rgba(255,255,255,0.18)"
-      : "transparent";
+    item.style.background = isActive ? styles.itemSelected : "transparent";
+    item.style.borderColor = isActive ? styles.itemBorderActive : "transparent";
 
     if (isActive) {
       item.scrollIntoView({ block: "nearest" });
@@ -44,7 +49,10 @@ export const removeSuggestionDropdown = () => {
   setIsSuggestionMenuOpen(false);
 };
 
-const createLoadingRow = () => {
+const createLoadingRow = async () => {
+  const theme = await getResolvedTheme();
+  const styles = getSurfaceStylesByTheme(theme);
+
   const row = document.createElement("div");
   row.style.display = "flex";
   row.style.alignItems = "center";
@@ -55,24 +63,27 @@ const createLoadingRow = () => {
   spinner.style.width = "16px";
   spinner.style.height = "16px";
   spinner.style.borderRadius = "9999px";
-  spinner.style.border = "2px solid rgba(255,255,255,0.22)";
-  spinner.style.borderTopColor = "#ffffff";
+  spinner.style.border = `2px solid ${styles.spinnerTrack}`;
+  spinner.style.borderTopColor = styles.spinnerHead;
   spinner.style.animation = "bolor-ai-spin 0.8s linear infinite";
 
   const label = document.createElement("div");
   label.textContent = "Шалгаж байна...";
+  label.style.color = styles.panelText;
 
   row.appendChild(spinner);
   row.appendChild(label);
-
   return row;
 };
 
-const createSuggestionItem = (
+const createSuggestionItem = async (
   suggestion: string,
   index: number,
   onPick: (value: string) => void,
 ) => {
+  const theme = await getResolvedTheme();
+  const styles = getSurfaceStylesByTheme(theme);
+
   const item = document.createElement("button");
   item.type = "button";
   item.textContent = suggestion;
@@ -86,13 +97,13 @@ const createSuggestionItem = (
   item.style.borderRadius = "10px";
   item.style.border = "1px solid transparent";
   item.style.background = "transparent";
-  item.style.color = "#ffffff";
+  item.style.color = styles.panelText;
   item.style.cursor = "pointer";
   item.style.outline = "none";
 
   item.addEventListener("mouseenter", () => {
     setSelectedSuggestionIndex(index);
-    refreshSuggestionDropdownHighlight();
+    void refreshSuggestionDropdownHighlight();
   });
 
   item.addEventListener("click", (event) => {
@@ -104,37 +115,45 @@ const createSuggestionItem = (
   return item;
 };
 
-const createFooter = () => {
+const createFooter = async () => {
+  const theme = await getResolvedTheme();
+  const styles = getSurfaceStylesByTheme(theme);
+
   const footer = document.createElement("div");
   footer.textContent = "↑ ↓ сонгох • Enter эсвэл click";
   footer.style.fontSize = "11px";
-  footer.style.opacity = "0.65";
+  footer.style.color = styles.subtleText;
   footer.style.padding = "8px 12px 4px";
 
   return footer;
 };
 
-export const renderSuggestionDropdown = (onPick: (value: string) => void) => {
+export const renderSuggestionDropdown = async (
+  onPick: (value: string) => void,
+) => {
   ensureDropdownStyles();
   removeSuggestionDropdown();
 
   if (!hasDropdownAnchor()) return;
   if (!isSuggestionLoading && !latestSuggestions.length) return;
 
-  const dropdown = createDropdownElement();
+  const dropdown = await createDropdownElement();
 
   if (isSuggestionLoading) {
-    dropdown.appendChild(createLoadingRow());
+    dropdown.appendChild(await createLoadingRow());
   } else {
-    latestSuggestions.forEach((suggestion, index) => {
-      dropdown.appendChild(createSuggestionItem(suggestion, index, onPick));
-    });
+    for (let index = 0; index < latestSuggestions.length; index += 1) {
+      const suggestion = latestSuggestions[index];
+      dropdown.appendChild(
+        await createSuggestionItem(suggestion, index, onPick),
+      );
+    }
 
-    dropdown.appendChild(createFooter());
+    dropdown.appendChild(await createFooter());
   }
 
   document.body.appendChild(dropdown);
   setIsSuggestionMenuOpen(true);
   repositionSuggestionDropdown();
-  refreshSuggestionDropdownHighlight();
+  void refreshSuggestionDropdownHighlight();
 };
