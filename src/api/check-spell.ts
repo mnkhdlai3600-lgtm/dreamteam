@@ -157,6 +157,8 @@ const buildCorrectedSentenceFromCyrillic = async (
     };
   }
 
+  const errorTokens: WordToken[] = [];
+
   for (const token of tokens) {
     const originalWord = token.value;
 
@@ -170,30 +172,37 @@ const buildCorrectedSentenceFromCyrillic = async (
       continue;
     }
 
-    const wordSuggestions = await getWordSuggestions(originalWord);
-    const bestSuggestion = wordSuggestions[0];
+    errorTokens.push(token);
+  }
 
-    const corrected = bestSuggestion
-      ? buildSentenceByReplacingToken(text, token, bestSuggestion)
-      : text;
-
+  if (!errorTokens.length) {
     return {
       original: text,
-      corrected,
-      changed: corrected !== text,
-      suggestions: wordSuggestions,
-      errorWords: [originalWord],
-      mode: wordSuggestions.length > 0 ? "bolor-suggest" : "none",
+      corrected: text,
+      changed: false,
+      suggestions: [],
+      errorWords: [],
+      mode: "none",
     };
   }
 
+  const lastErrorToken = errorTokens[errorTokens.length - 1];
+  const errorWords = errorTokens.map((token) => token.value);
+
+  const wordSuggestions = await getWordSuggestions(lastErrorToken.value);
+  const bestSuggestion = wordSuggestions[0];
+
+  const corrected = bestSuggestion
+    ? buildSentenceByReplacingToken(text, lastErrorToken, bestSuggestion)
+    : text;
+
   return {
     original: text,
-    corrected: text,
-    changed: false,
-    suggestions: [],
-    errorWords: [],
-    mode: "none",
+    corrected,
+    changed: corrected !== text,
+    suggestions: wordSuggestions,
+    errorWords,
+    mode: wordSuggestions.length > 0 ? "bolor-suggest" : "none",
   };
 };
 
