@@ -4,6 +4,9 @@ import {
   activeElement,
   clearSuggestion,
   lastAppliedText,
+  resetIndicatorVisualState,
+  setIndicatorErrorCount,
+  setIndicatorVisualState,
   setLatestSuggestion,
   setLatestSuggestions,
   setSelectedSuggestionIndex,
@@ -38,9 +41,17 @@ const buildDisplaySuggestions = (
   original: string,
   corrected: string,
   suggestions: string[],
+  isLatinInput: boolean,
 ) => {
   const trimmedOriginal = original.trim();
   const trimmedCorrected = corrected.trim();
+
+  if (isLatinInput) {
+    if (trimmedCorrected && trimmedCorrected !== trimmedOriginal) {
+      return [trimmedCorrected];
+    }
+    return [];
+  }
 
   const result: string[] = [];
 
@@ -64,6 +75,7 @@ export const checkText = async (text: string) => {
   if (!trimmed) {
     clearSuggestion();
     clearHighlightedErrors();
+    resetIndicatorVisualState();
     removeIndicator();
     return;
   }
@@ -71,7 +83,20 @@ export const checkText = async (text: string) => {
   if (lastAppliedText && trimmed === lastAppliedText.trim()) {
     clearSuggestion();
     clearHighlightedErrors();
-    removeIndicator();
+    setIndicatorVisualState("success");
+    setIndicatorErrorCount(0);
+
+    renderSuggestionIndicator();
+    updateIndicatorPosition(activeElement!);
+
+    window.setTimeout(() => {
+      resetIndicatorVisualState();
+      if (activeElement) {
+        renderSuggestionIndicator();
+        updateIndicatorPosition(activeElement);
+      }
+    }, 1200);
+
     return;
   }
 
@@ -103,17 +128,24 @@ export const checkText = async (text: string) => {
         : [],
     );
 
-    const errorWords = Array.isArray(data.errorWords)
+    const rawErrorWords = Array.isArray(data.errorWords)
       ? data.errorWords
           .filter((item: unknown): item is string => typeof item === "string")
           .map((item) => item.trim())
           .filter(Boolean)
       : [];
 
+    const hasLatin = /[A-Za-z]/.test(trimmed);
+    const hasCyrillic = /[А-Яа-яӨөҮүЁё]/.test(trimmed);
+    const isLatinInput = hasLatin && !hasCyrillic;
+
+    const errorWords = isLatinInput ? [] : rawErrorWords;
+
     const displaySuggestions = buildDisplaySuggestions(
       trimmed,
       corrected,
       suggestions,
+      isLatinInput,
     );
 
     const hasSentenceCorrection = corrected.length > 0 && corrected !== trimmed;
@@ -123,16 +155,20 @@ export const checkText = async (text: string) => {
     clearHighlights(activeElement);
     clearHighlightedErrors();
 
-    if (!hasSentenceCorrection && !hasSuggestions && !hasErrors) {
-      clearSuggestion();
-      renderSuggestionIndicator();
-      updateIndicatorPosition(activeElement);
-      return;
-    }
-
-    if (hasErrors) {
+    if (isLatinInput) {
+      setIndicatorVisualState("latin");
+      setIndicatorErrorCount(0);
+    } else if (hasErrors) {
       const items = highlightErrorWords(activeElement, errorWords);
       setHighlightedErrors(items);
+      setIndicatorVisualState("error");
+      setIndicatorErrorCount(items.length || errorWords.length);
+    } else if (hasSentenceCorrection || hasSuggestions) {
+      setIndicatorVisualState("success");
+      setIndicatorErrorCount(0);
+    } else {
+      setIndicatorVisualState("idle");
+      setIndicatorErrorCount(0);
     }
 
     if (hasSuggestions) {
@@ -150,9 +186,9 @@ export const checkText = async (text: string) => {
     renderSuggestionIndicator();
     updateIndicatorPosition(activeElement);
   } catch (error) {
-    console.error("checkText error:", error);
     clearSuggestion();
     clearHighlightedErrors();
+    resetIndicatorVisualState();
 
     if (activeElement) {
       clearHighlights(activeElement);

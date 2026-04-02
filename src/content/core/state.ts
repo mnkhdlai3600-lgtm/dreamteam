@@ -130,3 +130,26 @@ export const setSuggestionPhase = (value: SuggestionPhase) => {
 };
 
 export const hasSuggestions = () => latestSuggestions.length > 0;
+
+export type IndicatorVisualState =
+  | "idle"
+  | "loading"
+  | "latin"
+  | "error"
+  | "success";
+
+export let indicatorVisualState: IndicatorVisualState = "idle";
+export let indicatorErrorCount = 0;
+
+export const setIndicatorVisualState = (value: IndicatorVisualState) => {
+  indicatorVisualState = value;
+};
+
+export const setIndicatorErrorCount = (value: number) => {
+  indicatorErrorCount = value;
+};
+
+export const resetIndicatorVisualState = () => {
+  indicatorVisualState = "idle";
+  indicatorErrorCount = 0;
+};

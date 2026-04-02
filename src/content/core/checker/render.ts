@@ -1,50 +1,57 @@
 import {
   activeElement,
   hasSuggestions,
+  indicatorErrorCount,
+  indicatorVisualState,
   isSuggestionLoading,
   latestSuggestions,
-  selectedSuggestionIndex,
+  setLatestSuggestion,
+  setSelectedSuggestionIndex,
   suggestionPhase,
 } from "../state";
-import { getHoveredErrorId } from "../error-state";
-import { createIndicator, removeIndicator } from "../../ui";
-import { getEditableMode } from "../../dom";
+import {
+  createIndicator,
+  removeIndicator,
+  renderSuggestionDropdown,
+  removeSuggestionDropdown,
+} from "../../ui";
+import { applySuggestion } from "./apply";
 
 export const renderSuggestionIndicator = () => {
   if (!activeElement) {
     removeIndicator();
+    removeSuggestionDropdown();
     return;
   }
 
-  if (suggestionPhase === "loading" || isSuggestionLoading) {
-    void createIndicator(activeElement, "", { state: "loading" });
-    return;
-  }
+  const visualState =
+    isSuggestionLoading && indicatorVisualState === "idle"
+      ? "loading"
+      : indicatorVisualState;
 
-  if (suggestionPhase === "typing") {
-    return;
-  }
+  void createIndicator(activeElement, "", {
+    state: visualState,
+    errorCount: indicatorErrorCount,
+  });
 
-  if (suggestionPhase === "suggesting") {
-    if (!hasSuggestions() || latestSuggestions.length === 0) {
-      removeIndicator();
-      return;
-    }
+  if (
+    suggestionPhase === "suggesting" &&
+    hasSuggestions() &&
+    latestSuggestions.length > 0
+  ) {
+    void renderSuggestionDropdown((value: string) => {
+      const index = latestSuggestions.findIndex((item) => item === value);
 
-    const mode = getEditableMode(activeElement);
+      if (index >= 0) {
+        setSelectedSuggestionIndex(index);
+      }
 
-    if (mode === "contenteditable-inline" && !getHoveredErrorId()) {
-      removeIndicator();
-      return;
-    }
-
-    void createIndicator(activeElement, "", {
-      suggestions: latestSuggestions,
-      selectedIndex: selectedSuggestionIndex,
+      setLatestSuggestion(value);
+      applySuggestion();
     });
 
     return;
   }
 
-  removeIndicator();
+  removeSuggestionDropdown();
 };

@@ -19,9 +19,12 @@ type IndicatorOptions = {
   onSuggestionClick?: (index: number) => void;
   onFixAll?: () => void;
   state?: IndicatorState;
+  errorCount?: number;
 };
 
 let indicatorRenderToken = 0;
+let lastDotState: IndicatorState | null = null;
+let lastDotErrorCount: number | null = null;
 
 const getTextEndRectForInput = (
   el: HTMLInputElement | HTMLTextAreaElement,
@@ -218,6 +221,7 @@ export const createIndicator = async (
   const hasSuggestionList = suggestions.length > 0;
   const selectedIndex = options.selectedIndex ?? 0;
   const state = options.state ?? "idle";
+  const errorCount = options.errorCount ?? 0;
 
   const container = getOrCreateIndicator();
   container.style.transition =
@@ -264,13 +268,24 @@ export const createIndicator = async (
   }
 
   container.dataset.mode = "dot";
-  clearChildren(container);
 
-  await buildDotIndicator(container, state);
+  const shouldReuseDot =
+    previousMode === "dot" &&
+    lastDotState === state &&
+    lastDotErrorCount === errorCount &&
+    container.childElementCount > 0;
 
-  if (renderToken !== indicatorRenderToken) return;
-  if (!container.isConnected) return;
-  if (container.dataset.mode !== "dot") return;
+  if (!shouldReuseDot) {
+    clearChildren(container);
+    await buildDotIndicator(container, state, errorCount);
+
+    if (renderToken !== indicatorRenderToken) return;
+    if (!container.isConnected) return;
+    if (container.dataset.mode !== "dot") return;
+
+    lastDotState = state;
+    lastDotErrorCount = errorCount;
+  }
 
   positionIndicator(target, container, false);
 };

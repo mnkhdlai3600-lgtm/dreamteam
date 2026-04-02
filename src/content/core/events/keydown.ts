@@ -1,18 +1,16 @@
+import { applySuggestion } from "../checker/apply";
 import {
-  applySuggestion,
   hasOpenSuggestions,
   selectNextSuggestion,
   selectPreviousSuggestion,
 } from "../checker/checker";
-import { renderSuggestionIndicator } from "../checker/render";
-import { shouldSkipHotkey } from "../guard";
 import {
   clearSuggestion,
   isSuggestionLoading,
   setActiveElement,
 } from "../state";
 import { resolveActiveEditable } from "../../dom/editable";
-import { removeIndicator } from "../../ui/indicator";
+import { removeSuggestionDropdown } from "../../ui";
 import { updateIndicatorPosition } from "../../ui/indicator/indicator-render";
 
 const stopEvent = (event: KeyboardEvent) => {
@@ -34,42 +32,34 @@ export const registerKeydownEvents = () => {
         resolved && (hasOpenSuggestions() || isSuggestionLoading),
       );
 
-      if (canNavigateSuggestions) {
-        if (event.key === "ArrowDown" && !isSuggestionLoading) {
-          stopEvent(event);
-          selectNextSuggestion();
-          renderSuggestionIndicator();
-          if (resolved) updateIndicatorPosition(resolved);
-          return;
-        }
+      if (!canNavigateSuggestions) return;
 
-        if (event.key === "ArrowUp" && !isSuggestionLoading) {
-          stopEvent(event);
-          selectPreviousSuggestion();
-          renderSuggestionIndicator();
-          if (resolved) updateIndicatorPosition(resolved);
-          return;
-        }
-
-        if (event.key === "Enter" && !isSuggestionLoading) {
-          stopEvent(event);
-          applySuggestion();
-          return;
-        }
-
-        if (event.key === "Escape") {
-          stopEvent(event);
-          clearSuggestion();
-          removeIndicator();
-          return;
-        }
+      if (event.key === "ArrowDown" && !isSuggestionLoading) {
+        stopEvent(event);
+        selectNextSuggestion();
+        if (resolved) updateIndicatorPosition(resolved);
+        return;
       }
 
-      if (shouldSkipHotkey(event)) return;
-      if (!resolved) return;
+      if (event.key === "ArrowUp" && !isSuggestionLoading) {
+        stopEvent(event);
+        selectPreviousSuggestion();
+        if (resolved) updateIndicatorPosition(resolved);
+        return;
+      }
 
-      stopEvent(event);
-      applySuggestion();
+      if (event.key === "Enter" && !isSuggestionLoading) {
+        stopEvent(event);
+        applySuggestion();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        stopEvent(event);
+        clearSuggestion();
+        removeSuggestionDropdown();
+        if (resolved) updateIndicatorPosition(resolved);
+      }
     },
     true,
   );

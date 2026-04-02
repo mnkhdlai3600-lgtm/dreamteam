@@ -8,7 +8,9 @@ import {
   debounceTimer,
   lastAppliedText,
   lastCheckedText,
+  resetIndicatorVisualState,
   setDebounceTimer,
+  setIndicatorVisualState,
   setIsSuggestionLoading,
   setLastCheckedText,
 } from "../state";
@@ -23,6 +25,17 @@ const clearPendingDebounce = () => {
   }
 };
 
+const getVisualStateFromText = (text: string) => {
+  const hasLatin = /[A-Za-z]/.test(text);
+  const hasCyrillic = /[А-Яа-яӨөҮүЁё]/.test(text);
+
+  if (hasLatin && !hasCyrillic) {
+    return "latin" as const;
+  }
+
+  return "idle" as const;
+};
+
 export const handleInput = () => {
   if (shouldSkipHandleInput() || !activeElement) return;
 
@@ -35,11 +48,14 @@ export const handleInput = () => {
     cancelPendingRequests();
     setIsSuggestionLoading(false);
     clearSuggestion();
-    removeIndicator();
+    resetIndicatorVisualState();
+    renderSuggestionIndicator();
+    updateIndicatorPosition(activeElement);
     return;
   }
 
-  // typing үед dot үргэлж харагдаж байг
+  setIndicatorVisualState(getVisualStateFromText(text));
+
   renderSuggestionIndicator();
   updateIndicatorPosition(activeElement);
 
@@ -63,7 +79,9 @@ export const handleInput = () => {
         cancelPendingRequests();
         setIsSuggestionLoading(false);
         clearSuggestion();
-        removeIndicator();
+        resetIndicatorVisualState();
+        renderSuggestionIndicator();
+        updateIndicatorPosition(activeElement);
         return;
       }
 
@@ -74,6 +92,7 @@ export const handleInput = () => {
         return;
       }
 
+      setIndicatorVisualState(getVisualStateFromText(latestText));
       setIsSuggestionLoading(true);
       setLastCheckedText(latestText);
       renderSuggestionIndicator();
@@ -89,10 +108,13 @@ export const handleInput = () => {
 
         if (!currentText) {
           clearSuggestion();
-          removeIndicator();
+          resetIndicatorVisualState();
+          renderSuggestionIndicator();
+          updateIndicatorPosition(activeElement);
           return;
         }
 
+        setIndicatorVisualState(getVisualStateFromText(currentText));
         setIsSuggestionLoading(false);
         renderSuggestionIndicator();
         updateIndicatorPosition(activeElement);
