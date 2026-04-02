@@ -8,6 +8,7 @@ import {
 import {
   createDropdownElement,
   ensureDropdownStyles,
+  getAllDropdownElements,
   getDropdownElement,
 } from "./dropdown-dom";
 import {
@@ -18,6 +19,8 @@ import {
   getResolvedTheme,
   getSurfaceStylesByTheme,
 } from "./indicator/indicator-theme";
+
+let dropdownRenderToken = 0;
 
 export const refreshSuggestionDropdownHighlight = async () => {
   const dropdown = getDropdownElement();
@@ -45,7 +48,7 @@ export const refreshSuggestionDropdownHighlight = async () => {
 };
 
 export const removeSuggestionDropdown = () => {
-  getDropdownElement()?.remove();
+  getAllDropdownElements().forEach((element) => element.remove());
   setIsSuggestionMenuOpen(false);
 };
 
@@ -131,6 +134,8 @@ const createFooter = async () => {
 export const renderSuggestionDropdown = async (
   onPick: (value: string) => void,
 ) => {
+  const renderToken = ++dropdownRenderToken;
+
   ensureDropdownStyles();
   removeSuggestionDropdown();
 
@@ -138,6 +143,9 @@ export const renderSuggestionDropdown = async (
   if (!isSuggestionLoading && !latestSuggestions.length) return;
 
   const dropdown = await createDropdownElement();
+
+  if (renderToken !== dropdownRenderToken) return;
+  if (!hasDropdownAnchor()) return;
 
   if (isSuggestionLoading) {
     dropdown.appendChild(await createLoadingRow());
@@ -147,11 +155,16 @@ export const renderSuggestionDropdown = async (
       dropdown.appendChild(
         await createSuggestionItem(suggestion, index, onPick),
       );
+
+      if (renderToken !== dropdownRenderToken) return;
     }
 
     dropdown.appendChild(await createFooter());
   }
 
+  if (renderToken !== dropdownRenderToken) return;
+
+  removeSuggestionDropdown();
   document.body.appendChild(dropdown);
   setIsSuggestionMenuOpen(true);
   repositionSuggestionDropdown();

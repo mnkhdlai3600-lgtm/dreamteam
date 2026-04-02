@@ -98,7 +98,11 @@ export const applySuggestion = () => {
         nextText = replaceSelectedRangeInInput(resolved, suggestion);
         ok = true;
       } else {
-        ok = false;
+        resolved.value = suggestion;
+        const nextCaret = suggestion.length;
+        resolved.setSelectionRange(nextCaret, nextCaret);
+        nextText = suggestion;
+        ok = true;
       }
     } else {
       ok = setElementText(resolved, suggestion);

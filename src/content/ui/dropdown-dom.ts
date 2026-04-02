@@ -25,6 +25,12 @@ export const getDropdownElement = () => {
   return document.getElementById(DROPDOWN_ID) as HTMLDivElement | null;
 };
 
+export const getAllDropdownElements = () => {
+  return Array.from(
+    document.querySelectorAll<HTMLDivElement>(`#${DROPDOWN_ID}`),
+  );
+};
+
 export const createDropdownElement = async () => {
   const theme = await getResolvedTheme();
   const styles = getSurfaceStylesByTheme(theme);

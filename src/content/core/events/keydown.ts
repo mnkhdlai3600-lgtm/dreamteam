@@ -7,6 +7,7 @@ import {
 import {
   clearSuggestion,
   isSuggestionLoading,
+  latestSuggestion,
   setActiveElement,
 } from "../state";
 import { resolveActiveEditable } from "../../dom/editable";
@@ -29,7 +30,8 @@ export const registerKeydownEvents = () => {
       }
 
       const canNavigateSuggestions = Boolean(
-        resolved && (hasOpenSuggestions() || isSuggestionLoading),
+        resolved &&
+        (hasOpenSuggestions() || isSuggestionLoading || latestSuggestion),
       );
 
       if (!canNavigateSuggestions) return;
@@ -48,7 +50,7 @@ export const registerKeydownEvents = () => {
         return;
       }
 
-      if (event.key === "Enter" && !isSuggestionLoading) {
+      if (event.key === "Enter" && !isSuggestionLoading && latestSuggestion) {
         stopEvent(event);
         applySuggestion();
         return;

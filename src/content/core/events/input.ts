@@ -9,7 +9,7 @@ import {
   setSuggestionPhase,
   clearSuggestion,
 } from "../state";
-import { handleInput } from "./input-handlers";
+import { handleInput } from "../checker/input";
 
 export const registerInputEvents = () => {
   document.addEventListener(

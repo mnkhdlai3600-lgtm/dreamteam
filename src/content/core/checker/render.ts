@@ -119,6 +119,7 @@ export const renderSuggestionIndicator = () => {
       renderSuggestionIndicator();
     }
   };
+
   if (!activeElement) {
     removeIndicator();
     removeSuggestionDropdown();
@@ -126,7 +127,7 @@ export const renderSuggestionIndicator = () => {
   }
 
   const visualState =
-    isSuggestionLoading && indicatorVisualState === "idle"
+    isSuggestionLoading && indicatorVisualState !== "latin"
       ? "loading"
       : indicatorVisualState;
 
@@ -136,11 +137,14 @@ export const renderSuggestionIndicator = () => {
     onDotClick: visualState === "error" ? handleDotClick : undefined,
   });
 
-  if (
+  const shouldShowDropdown =
     suggestionPhase === "suggesting" &&
     hasSuggestions() &&
-    latestSuggestions.length > 0
-  ) {
+    latestSuggestions.length > 0;
+
+  if (shouldShowDropdown) {
+    removeSuggestionDropdown();
+
     void renderSuggestionDropdown((value: string) => {
       const index = latestSuggestions.findIndex((item) => item === value);
 

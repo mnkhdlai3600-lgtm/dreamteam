@@ -136,6 +136,7 @@ export const requestSuggestionsForWord = async (
 
 export const checkText = async (text: string) => {
   const trimmed = text.trim();
+  const justApplied = !!lastAppliedText && trimmed === lastAppliedText.trim();
 
   if (!trimmed) {
     clearSuggestion();
@@ -146,7 +147,7 @@ export const checkText = async (text: string) => {
     return;
   }
 
-  if (lastAppliedText && trimmed === lastAppliedText.trim()) {
+  if (justApplied) {
     clearSuggestion();
 
     if (activeElement) {
@@ -368,9 +369,26 @@ export const checkText = async (text: string) => {
         setShouldAutoAdvanceError(false);
       }
     } else if (hasSentenceCorrection || hasSuggestions) {
+      setIndicatorVisualState(isLatinInput ? "latin" : "success");
+      setIndicatorErrorCount(0);
+      setShouldAutoAdvanceError(false);
+    } else if (justApplied && !isLatinInput && !hasErrors) {
       setIndicatorVisualState("success");
       setIndicatorErrorCount(0);
       setShouldAutoAdvanceError(false);
+
+      window.setTimeout(() => {
+        const latestEditable = resolveActiveEditable() ?? activeElement;
+        if (!latestEditable) return;
+
+        const latestText = getElementText(latestEditable).trim();
+        if (latestText !== trimmed) return;
+
+        setIndicatorVisualState("idle");
+        setIndicatorErrorCount(0);
+        renderSuggestionIndicator();
+        updateIndicatorPosition(latestEditable);
+      }, 1000);
     } else {
       setIndicatorVisualState("idle");
       setIndicatorErrorCount(0);
@@ -378,18 +396,36 @@ export const checkText = async (text: string) => {
     }
 
     const shouldAutoOpenSentenceSuggestions =
-      !isLatinInput &&
+      !justApplied &&
       !isAutoAdvancing &&
       errorWords.length <= 1 &&
       (hasSuggestions || hasSentenceCorrection);
 
     if (!autoAdvanceHandled) {
-      if (shouldAutoOpenSentenceSuggestions && hasSuggestions) {
+      if (isLatinInput && hasSuggestions) {
         setLatestSuggestions(displaySuggestions);
         setSelectedSuggestionIndex(0);
         setLatestSuggestion(displaySuggestions[0] ?? null);
         setSuggestionPhase("suggesting");
-      } else if (shouldAutoOpenSentenceSuggestions && hasSentenceCorrection) {
+      } else if (isLatinInput && hasSentenceCorrection) {
+        setLatestSuggestions([corrected]);
+        setSelectedSuggestionIndex(0);
+        setLatestSuggestion(corrected);
+        setSuggestionPhase("suggesting");
+      } else if (
+        !isLatinInput &&
+        shouldAutoOpenSentenceSuggestions &&
+        hasSuggestions
+      ) {
+        setLatestSuggestions(displaySuggestions);
+        setSelectedSuggestionIndex(0);
+        setLatestSuggestion(displaySuggestions[0] ?? null);
+        setSuggestionPhase("suggesting");
+      } else if (
+        !isLatinInput &&
+        shouldAutoOpenSentenceSuggestions &&
+        hasSentenceCorrection
+      ) {
         setLatestSuggestions([corrected]);
         setSelectedSuggestionIndex(0);
         setLatestSuggestion(corrected);

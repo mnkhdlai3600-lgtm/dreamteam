@@ -13,6 +13,7 @@ import {
   setIndicatorVisualState,
   setIsSuggestionLoading,
   setLastCheckedText,
+  setSuggestionPhase,
 } from "../state";
 import { checkText } from "./request";
 import { renderSuggestionIndicator } from "./render";
@@ -49,13 +50,14 @@ export const handleInput = () => {
     setIsSuggestionLoading(false);
     clearSuggestion();
     resetIndicatorVisualState();
+    setSuggestionPhase("idle");
     renderSuggestionIndicator();
     updateIndicatorPosition(activeElement);
     return;
   }
 
   setIndicatorVisualState(getVisualStateFromText(text));
-
+  setSuggestionPhase("typing");
   renderSuggestionIndicator();
   updateIndicatorPosition(activeElement);
 
@@ -80,6 +82,7 @@ export const handleInput = () => {
         setIsSuggestionLoading(false);
         clearSuggestion();
         resetIndicatorVisualState();
+        setSuggestionPhase("idle");
         renderSuggestionIndicator();
         updateIndicatorPosition(activeElement);
         return;
@@ -94,6 +97,7 @@ export const handleInput = () => {
 
       setIndicatorVisualState(getVisualStateFromText(latestText));
       setIsSuggestionLoading(true);
+      setSuggestionPhase("loading");
       setLastCheckedText(latestText);
       renderSuggestionIndicator();
       updateIndicatorPosition(activeElement);
@@ -109,12 +113,12 @@ export const handleInput = () => {
         if (!currentText) {
           clearSuggestion();
           resetIndicatorVisualState();
+          setSuggestionPhase("idle");
           renderSuggestionIndicator();
           updateIndicatorPosition(activeElement);
           return;
         }
 
-        setIndicatorVisualState(getVisualStateFromText(currentText));
         setIsSuggestionLoading(false);
         renderSuggestionIndicator();
         updateIndicatorPosition(activeElement);

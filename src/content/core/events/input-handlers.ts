@@ -13,6 +13,8 @@ import {
   setLastAppliedText,
   setLastCheckedText,
   setSuggestionPhase,
+  setIndicatorVisualState,
+  setIndicatorErrorCount,
 } from "../state";
 import { checkText } from "../checker/request";
 import { renderSuggestionIndicator } from "../checker/render";
@@ -30,6 +32,8 @@ export const handleInput = () => {
     setLastAppliedText(null);
     setLastCheckedText("");
     setSuggestionPhase("idle");
+    setIndicatorVisualState("idle");
+    setIndicatorErrorCount(0);
     void renderSuggestionIndicator();
     updateIndicatorPosition(activeElement);
     return;
@@ -62,6 +66,8 @@ export const handleInput = () => {
         setLastAppliedText(null);
         setLastCheckedText("");
         setSuggestionPhase("idle");
+        setIndicatorVisualState("idle");
+        setIndicatorErrorCount(0);
         void renderSuggestionIndicator();
         updateIndicatorPosition(activeElement);
         return;
@@ -93,6 +99,8 @@ export const handleInput = () => {
           if (!currentText) {
             clearSuggestion();
             setSuggestionPhase("idle");
+            setIndicatorVisualState("idle");
+            setIndicatorErrorCount(0);
           } else {
             setSuggestionPhase("typing");
           }
