@@ -200,6 +200,47 @@ export const highlightErrorWord = (root: HTMLElement, word: string) => {
   return items.length > 0;
 };
 
+export const getHighlightedErrorElementById = (
+  root: HTMLElement,
+  id: string,
+) => {
+  const target = getHighlightTarget(root);
+
+  return target.querySelector<HTMLElement>(`[data-bolor-error-id="${id}"]`);
+};
+
+export const focusHighlightedErrorById = (root: HTMLElement, id: string) => {
+  const target = getHighlightTarget(root);
+  const errorEl = getHighlightedErrorElementById(target, id);
+
+  if (!errorEl) return false;
+
+  target.focus?.();
+  errorEl.scrollIntoView({
+    block: "nearest",
+    inline: "nearest",
+    behavior: "smooth",
+  });
+
+  const selection = window.getSelection();
+  if (!selection) return true;
+
+  const textNode = errorEl.firstChild;
+  if (!textNode) return true;
+
+  try {
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, textNode.textContent?.length ?? 0);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  } catch {
+    return true;
+  }
+
+  return true;
+};
+
 export const flashCorrectedWord = (root: HTMLElement, word: string) => {
   const target = getHighlightTarget(root);
   clearHighlights(target);

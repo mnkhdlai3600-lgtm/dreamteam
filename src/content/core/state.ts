@@ -153,3 +153,40 @@ export const resetIndicatorVisualState = () => {
   indicatorVisualState = "idle";
   indicatorErrorCount = 0;
 };
+
+export let currentErrorNavigationIndex = 0;
+
+export const setCurrentErrorNavigationIndex = (value: number) => {
+  currentErrorNavigationIndex = value;
+};
+
+export const resetErrorNavigationIndex = () => {
+  currentErrorNavigationIndex = 0;
+};
+
+export const getNextErrorNavigationIndex = (total: number) => {
+  if (total <= 0) return 0;
+
+  const next = currentErrorNavigationIndex % total;
+  currentErrorNavigationIndex = (currentErrorNavigationIndex + 1) % total;
+
+  return next;
+};
+
+export let selectedErrorRange: { start: number; end: number } | null = null;
+
+export const setSelectedErrorRange = (
+  range: { start: number; end: number } | null,
+) => {
+  selectedErrorRange = range;
+};
+
+export const clearSelectedErrorRange = () => {
+  selectedErrorRange = null;
+};
+
+export let shouldAutoAdvanceError = false;
+
+export const setShouldAutoAdvanceError = (value: boolean) => {
+  shouldAutoAdvanceError = value;
+};

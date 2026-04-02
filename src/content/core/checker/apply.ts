@@ -22,13 +22,37 @@ import {
   setLastCheckedText,
   setLatestSuggestion,
   setSuggestionPhase,
-  setSuppressInputUntil,
+  selectedErrorRange,
+  clearSelectedErrorRange,
+  setShouldAutoAdvanceError,
+  cancelPendingRequests,
+  debounceTimer,
+  setDebounceTimer,
 } from "../state";
-import {
-  APPLY_GUARD_MS,
-  APPLY_RESET_MS,
-  SUPPRESS_INPUT_MS,
-} from "../../../lib/constants";
+import { APPLY_GUARD_MS, APPLY_RESET_MS } from "../../../lib/constants";
+import { checkText } from "./request";
+
+const replaceSelectedRangeInInput = (
+  element: HTMLInputElement | HTMLTextAreaElement,
+  replacement: string,
+) => {
+  const rangeStart = selectedErrorRange?.start ?? element.selectionStart ?? 0;
+  const rangeEnd =
+    selectedErrorRange?.end ?? element.selectionEnd ?? rangeStart;
+
+  const currentValue = element.value;
+  const nextValue =
+    currentValue.slice(0, rangeStart) +
+    replacement +
+    currentValue.slice(rangeEnd);
+
+  element.value = nextValue;
+
+  const nextCaret = rangeStart + replacement.length;
+  element.setSelectionRange(nextCaret, nextCaret);
+
+  return nextValue;
+};
 
 export const applySuggestion = () => {
   const resolved = resolveActiveEditable();
@@ -43,37 +67,100 @@ export const applySuggestion = () => {
 
   const suggestion = latestSuggestion;
   setLatestSuggestion(null);
-  setSuppressInputUntil(Date.now() + SUPPRESS_INPUT_MS);
   setIsApplyingSuggestion(true);
   setIsSuggestionLoading(false);
 
   try {
     removeSuggestionDropdown();
 
-    const ok = setElementText(resolved, suggestion);
+    if (debounceTimer) {
+      window.clearTimeout(debounceTimer);
+      setDebounceTimer(null);
+    }
+
+    cancelPendingRequests();
+
+    let ok = false;
+    let nextText = currentText;
+
+    if (
+      resolved instanceof HTMLInputElement ||
+      resolved instanceof HTMLTextAreaElement
+    ) {
+      const hasSavedRange =
+        !!selectedErrorRange &&
+        selectedErrorRange.end > selectedErrorRange.start;
+
+      const hasLiveSelection =
+        (resolved.selectionStart ?? 0) !== (resolved.selectionEnd ?? 0);
+
+      if (hasSavedRange || hasLiveSelection) {
+        nextText = replaceSelectedRangeInInput(resolved, suggestion);
+        ok = true;
+      } else {
+        ok = false;
+      }
+    } else {
+      ok = setElementText(resolved, suggestion);
+      nextText = suggestion;
+    }
 
     if (!ok) {
+      clearSelectedErrorRange();
+      clearSuggestion();
       setSuggestionPhase("idle");
+      setIsSuggestionLoading(false);
       renderSuggestionIndicator();
       updateIndicatorPosition(resolved);
       return;
     }
 
-    setLastAppliedText(suggestion);
-    setLastCheckedText(suggestion.trim());
+    setLastAppliedText(nextText);
+    setLastCheckedText(nextText.trim());
+
+    console.log("АППЛАЙ ӨМНӨ", {
+      nextText,
+      selectedErrorRange,
+      suggestion,
+    });
+
+    if (
+      resolved instanceof HTMLInputElement ||
+      resolved instanceof HTMLTextAreaElement
+    ) {
+      clearSuggestion();
+      clearSelectedErrorRange();
+      setSuggestionPhase("idle");
+      setIsSuggestionLoading(false);
+
+      setShouldAutoAdvanceError(true);
+
+      console.log("АППЛАЙ ДАРАА", {
+        shouldAutoAdvance: true,
+        nextText,
+      });
+
+      setActiveElement(resolved);
+      void checkText(nextText);
+      return;
+    }
+
     clearSuggestion();
+    clearSelectedErrorRange();
+    setSuggestionPhase("idle");
+    setIsSuggestionLoading(false);
+
     clearHighlights(resolved);
     flashCorrectedWord(resolved, suggestion);
 
     setIndicatorVisualState("success");
     setIndicatorErrorCount(0);
-    setSuggestionPhase("idle");
 
     renderSuggestionIndicator();
     updateIndicatorPosition(resolved);
 
     window.setTimeout(() => {
-      if (!verifyElementText(resolved, suggestion)) return;
+      if (!verifyElementText(resolved, nextText)) return;
 
       setIndicatorVisualState("idle");
       setIndicatorErrorCount(0);

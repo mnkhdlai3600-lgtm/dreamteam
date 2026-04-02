@@ -3,7 +3,14 @@ import {
   createIndicator,
   removeIndicator,
 } from "../../ui/indicator/indicator-render";
-import { clearSuggestion, setActiveElement } from "../state";
+
+import {
+  clearSuggestion,
+  indicatorErrorCount,
+  indicatorVisualState,
+  setActiveElement,
+  suppressInputUntil,
+} from "../state";
 
 export const registerFocusEvents = () => {
   document.addEventListener(
@@ -13,6 +20,18 @@ export const registerFocusEvents = () => {
       if (!target) return;
 
       setActiveElement(target);
+
+      const isNavigationFocus = Date.now() < suppressInputUntil;
+
+      if (isNavigationFocus) {
+        void createIndicator(target, "", {
+          state:
+            indicatorVisualState === "idle" ? "error" : indicatorVisualState,
+          errorCount: indicatorErrorCount,
+        });
+        return;
+      }
+
       void createIndicator(target, "", { state: "idle" });
     },
     true,
@@ -22,6 +41,11 @@ export const registerFocusEvents = () => {
     "focusout",
     () => {
       window.setTimeout(() => {
+        const isNavigationFocus = Date.now() < suppressInputUntil;
+        if (isNavigationFocus) {
+          return;
+        }
+
         const editable = getEditableElement(document.activeElement);
         if (editable) return;
 

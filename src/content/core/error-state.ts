@@ -1,6 +1,8 @@
 export type HighlightErrorItem = {
   id: string;
   word: string;
+  start?: number;
+  end?: number;
 };
 
 let highlightedErrors: HighlightErrorItem[] = [];

@@ -1,12 +1,19 @@
 import { checkWordWithBolor, suggestWithBolor } from "./bolor-spell";
 import { correctWithOpenAI } from "./openai";
 
-export type CheckResult = {
+type ErrorItem = {
+  id: string;
+  word: string;
+  start: number;
+  end: number;
+};
+
+type CheckResult = {
   original: string;
   corrected: string;
   changed: boolean;
   suggestions: string[];
-  errorWords: string[];
+  errorWords: ErrorItem[];
   mode: "openai-galig" | "bolor-suggest" | "none";
 };
 
@@ -56,6 +63,15 @@ type WordToken = {
   value: string;
   start: number;
   end: number;
+};
+
+const toErrorItem = (token: WordToken, index: number): ErrorItem => {
+  return {
+    id: `error-${token.start}-${token.end}-${index}`,
+    word: token.value,
+    start: token.start,
+    end: token.end,
+  };
 };
 
 const getCyrillicWordTokens = (text: string): WordToken[] => {
@@ -187,7 +203,9 @@ const buildCorrectedSentenceFromCyrillic = async (
   }
 
   const lastErrorToken = errorTokens[errorTokens.length - 1];
-  const errorWords = errorTokens.map((token) => token.value);
+  const errorWords = errorTokens.map((token, index) =>
+    toErrorItem(token, index),
+  );
 
   const wordSuggestions = await getWordSuggestions(lastErrorToken.value);
   const bestSuggestion = wordSuggestions[0];
@@ -229,7 +247,17 @@ export const checkText = async (text: string): Promise<CheckResult> => {
         corrected,
         changed: corrected !== trimmed,
         suggestions: corrected !== trimmed ? [corrected] : [],
-        errorWords: corrected !== trimmed ? [trimmed] : [],
+        errorWords:
+          corrected !== trimmed
+            ? [
+                {
+                  id: "latin-whole-text",
+                  word: trimmed,
+                  start: 0,
+                  end: trimmed.length,
+                },
+              ]
+            : [],
         mode: corrected !== trimmed ? "openai-galig" : "none",
       };
     }

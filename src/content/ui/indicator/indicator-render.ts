@@ -18,6 +18,7 @@ type IndicatorOptions = {
   selectedIndex?: number;
   onSuggestionClick?: (index: number) => void;
   onFixAll?: () => void;
+  onDotClick?: () => void;
   state?: IndicatorState;
   errorCount?: number;
 };
@@ -277,7 +278,7 @@ export const createIndicator = async (
 
   if (!shouldReuseDot) {
     clearChildren(container);
-    await buildDotIndicator(container, state, errorCount);
+    await buildDotIndicator(container, state, errorCount, options.onDotClick);
 
     if (renderToken !== indicatorRenderToken) return;
     if (!container.isConnected) return;

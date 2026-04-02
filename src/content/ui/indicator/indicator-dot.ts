@@ -8,6 +8,7 @@ export const buildDotIndicator = async (
   container: HTMLDivElement,
   state: IndicatorState,
   errorCount = 0,
+  onClick?: () => void,
 ) => {
   const renderToken = ++dotRenderToken;
 
@@ -16,7 +17,8 @@ export const buildDotIndicator = async (
   container.style.zIndex = "999999";
   container.style.width = "22px";
   container.style.height = "22px";
-  container.style.pointerEvents = "none";
+  container.style.pointerEvents = state === "error" ? "auto" : "none";
+  container.style.cursor = state === "error" ? "pointer" : "default";
   container.style.background = "transparent";
   container.style.border = "none";
   container.style.boxShadow = "none";
@@ -30,6 +32,23 @@ export const buildDotIndicator = async (
   container.style.display = "flex";
   container.style.alignItems = "center";
   container.style.justifyContent = "center";
+
+  container.onclick = null;
+  container.onmousedown = null;
+  container.onmouseup = null;
+
+  if (state === "error" && onClick) {
+    container.onmousedown = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onClick();
+    };
+
+    container.onmouseup = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+  }
 
   const dotNode = await createBreathingDot(state, errorCount);
 
@@ -100,6 +119,7 @@ const createBreathingDot = async (
   dot.style.fontVariantNumeric = "tabular-nums";
   dot.style.userSelect = "none";
   dot.style.webkitUserSelect = "none";
+  dot.style.pointerEvents = "none";
 
   if (state === "error" && errorCount > 0) {
     dot.textContent = errorCount > 9 ? "9+" : String(errorCount);
