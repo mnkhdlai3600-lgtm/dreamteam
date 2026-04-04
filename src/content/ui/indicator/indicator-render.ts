@@ -1,202 +1,25 @@
-import { getIndicatorPosition } from "./indicator-position";
 import {
   animateCardOpen,
   buildSuggestionIndicator,
-  updateSuggestionSelection,
   updateSuggestionHint,
+  updateSuggestionSelection,
 } from "./indicator-card";
 import {
   clearChildren,
   getOrCreateIndicator,
   removeIndicator,
 } from "./indicator-dom";
-import { buildDotIndicator, type IndicatorState } from "./indicator-dot";
+import { buildDotIndicator } from "./indicator-dot";
 import { getResolvedTheme } from "./indicator-theme";
-
-type IndicatorOptions = {
-  suggestions?: string[];
-  selectedIndex?: number;
-  onSuggestionClick?: (index: number) => void;
-  onFixAll?: () => void;
-  onDotClick?: () => void;
-  state?: IndicatorState;
-  errorCount?: number;
-};
+import {
+  canReuseSuggestionContainer,
+  positionIndicator,
+} from "./indicator-layout";
+import type { IndicatorOptions } from "./indicator-types";
 
 let indicatorRenderToken = 0;
-let lastDotState: IndicatorState | null = null;
+let lastDotState: import("./indicator-dot").IndicatorState | null = null;
 let lastDotErrorCount: number | null = null;
-
-const getTextEndRectForInput = (
-  el: HTMLInputElement | HTMLTextAreaElement,
-): DOMRect => {
-  const div = document.createElement("div");
-  const style = window.getComputedStyle(el);
-
-  const properties = [
-    "boxSizing",
-    "width",
-    "height",
-    "overflowX",
-    "overflowY",
-    "borderTopWidth",
-    "borderRightWidth",
-    "borderBottomWidth",
-    "borderLeftWidth",
-    "paddingTop",
-    "paddingRight",
-    "paddingBottom",
-    "paddingLeft",
-    "fontStyle",
-    "fontVariant",
-    "fontWeight",
-    "fontStretch",
-    "fontSize",
-    "fontSizeAdjust",
-    "lineHeight",
-    "fontFamily",
-    "letterSpacing",
-    "textTransform",
-    "textAlign",
-    "textIndent",
-    "textDecoration",
-    "textRendering",
-    "wordSpacing",
-    "whiteSpace",
-  ] as const;
-
-  div.style.position = "fixed";
-  div.style.left = "-9999px";
-  div.style.top = "0";
-  div.style.visibility = "hidden";
-  div.style.pointerEvents = "none";
-  div.style.whiteSpace = el instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
-  div.style.wordWrap = "break-word";
-
-  for (const prop of properties) {
-    div.style[prop] = style[prop];
-  }
-
-  div.textContent = el.value ?? "";
-
-  const marker = document.createElement("span");
-  marker.textContent = "\u200b";
-  div.appendChild(marker);
-
-  document.body.appendChild(div);
-
-  const markerRect = marker.getBoundingClientRect();
-  const mirrorRect = div.getBoundingClientRect();
-  const inputRect = el.getBoundingClientRect();
-  const lineHeight = parseFloat(style.lineHeight) || inputRect.height * 0.6;
-
-  const rect = new DOMRect(
-    inputRect.left + (markerRect.left - mirrorRect.left) - el.scrollLeft,
-    inputRect.top + (markerRect.top - mirrorRect.top) - el.scrollTop,
-    1,
-    lineHeight,
-  );
-
-  document.body.removeChild(div);
-
-  return rect;
-};
-
-const getTextEndRectForEditable = (el: HTMLElement): DOMRect => {
-  const range = document.createRange();
-  range.selectNodeContents(el);
-  range.collapse(false);
-
-  const rects = range.getClientRects();
-  if (rects.length > 0) {
-    return rects[rects.length - 1];
-  }
-
-  return el.getBoundingClientRect();
-};
-
-const getTextEndAnchorRect = (target: HTMLElement): DOMRect => {
-  if (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement
-  ) {
-    return getTextEndRectForInput(target);
-  }
-
-  return getTextEndRectForEditable(target);
-};
-
-const positionDotIndicator = (
-  target: HTMLElement,
-  container: HTMLDivElement,
-) => {
-  const anchorRect = getTextEndAnchorRect(target);
-  const viewportPadding = 8;
-  const gap = 6;
-
-  let top = anchorRect.top + anchorRect.height / 2 - container.offsetHeight / 2;
-  let left = anchorRect.right + gap;
-
-  if (left + container.offsetWidth > window.innerWidth - viewportPadding) {
-    left = anchorRect.left - container.offsetWidth - gap;
-  }
-
-  if (left < viewportPadding) left = viewportPadding;
-  if (top < viewportPadding) top = viewportPadding;
-
-  if (top + container.offsetHeight > window.innerHeight - viewportPadding) {
-    top = window.innerHeight - container.offsetHeight - viewportPadding;
-  }
-
-  container.style.top = `${top}px`;
-  container.style.left = `${left}px`;
-};
-
-const positionSuggestionIndicator = (
-  target: HTMLElement,
-  container: HTMLDivElement,
-) => {
-  const anchorRect = getTextEndAnchorRect(target);
-  const { top, left } = getIndicatorPosition(
-    anchorRect,
-    container.offsetWidth,
-    container.offsetHeight,
-    true,
-  );
-
-  container.style.top = `${top}px`;
-  container.style.left = `${left}px`;
-};
-
-const positionIndicator = (
-  target: HTMLElement,
-  container: HTMLDivElement,
-  hasSuggestionList: boolean,
-) => {
-  if (hasSuggestionList) {
-    positionSuggestionIndicator(target, container);
-    return;
-  }
-
-  positionDotIndicator(target, container);
-};
-
-const canReuseSuggestionContainer = (
-  container: HTMLDivElement,
-  suggestions: string[],
-) => {
-  if (container.dataset.mode !== "suggestion") return false;
-
-  const currentItems = Array.from(
-    container.querySelectorAll<HTMLButtonElement>(
-      '[data-suggestion-item="true"]',
-    ),
-  ).map((item) => item.textContent ?? "");
-
-  if (currentItems.length !== suggestions.length) return false;
-
-  return currentItems.every((item, index) => item === suggestions[index]);
-};
 
 export const updateIndicatorPosition = (target: HTMLElement) => {
   const container = document.getElementById(

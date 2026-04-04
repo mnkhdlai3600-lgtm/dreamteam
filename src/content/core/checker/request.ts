@@ -10,129 +10,25 @@ import {
   setIndicatorVisualState,
   setLatestSuggestion,
   setLatestSuggestions,
+  setSelectedErrorRange,
   setSelectedSuggestionIndex,
   setShouldAutoAdvanceError,
-  shouldAutoAdvanceError,
-  setSelectedErrorRange,
   setSuggestionPhase,
   setIsSuggestionLoading,
+  shouldAutoAdvanceError,
 } from "../state";
 import { renderSuggestionIndicator } from "./render";
 import {
   clearHighlights,
-  highlightErrorWords,
   getElementText,
+  highlightErrorWords,
   resolveActiveEditable,
 } from "../../dom";
 import { clearHighlightedErrors, setHighlightedErrors } from "../error-state";
 import type { HighlightErrorItem } from "../error-state";
-
-const uniqueSuggestions = (items: string[]) => {
-  const seen = new Set<string>();
-  const result: string[] = [];
-
-  for (const item of items) {
-    const value = item.trim();
-    if (!value) continue;
-
-    const key = value.toLowerCase();
-    if (seen.has(key)) continue;
-
-    seen.add(key);
-    result.push(value);
-  }
-
-  return result;
-};
-
-type ErrorItem = {
-  id: string;
-  word: string;
-  start: number;
-  end: number;
-};
-
-const buildDisplaySuggestions = (
-  original: string,
-  corrected: string,
-  suggestions: string[],
-  isLatinInput: boolean,
-) => {
-  const trimmedOriginal = original.trim();
-  const trimmedCorrected = corrected.trim();
-
-  if (isLatinInput) {
-    if (trimmedCorrected && trimmedCorrected !== trimmedOriginal) {
-      return [trimmedCorrected];
-    }
-
-    return [];
-  }
-
-  const result: string[] = [];
-
-  if (trimmedCorrected && trimmedCorrected !== trimmedOriginal) {
-    result.push(trimmedCorrected);
-  }
-
-  for (const suggestion of suggestions) {
-    const value = suggestion.trim();
-    if (!value) continue;
-    if (value === trimmedOriginal) continue;
-    result.push(value);
-  }
-
-  return uniqueSuggestions(result);
-};
-
-type SingleWordSuggestResult = {
-  suggestions: string[];
-  corrected: string | null;
-};
-
-export const requestSuggestionsForWord = async (
-  word: string,
-): Promise<SingleWordSuggestResult> => {
-  const trimmed = word.trim();
-
-  if (!trimmed) {
-    return {
-      suggestions: [],
-      corrected: null,
-    };
-  }
-
-  const response = await sendCheckTextMessage(trimmed);
-
-  if (!response?.success || !response.data) {
-    throw new Error(response?.error || "Үгийн санал авахад алдаа гарлаа");
-  }
-
-  const corrected =
-    typeof response.data.corrected === "string"
-      ? response.data.corrected.trim()
-      : "";
-
-  const suggestions = uniqueSuggestions(
-    Array.isArray(response.data.suggestions)
-      ? response.data.suggestions.filter(
-          (item: unknown): item is string => typeof item === "string",
-        )
-      : [],
-  );
-
-  const displaySuggestions = buildDisplaySuggestions(
-    trimmed,
-    corrected,
-    suggestions,
-    false,
-  );
-
-  return {
-    suggestions: displaySuggestions,
-    corrected: corrected || null,
-  };
-};
+import { parseErrorWords } from "./request-errors";
+import { requestSuggestionsForWord } from "./request-word";
+import { buildDisplaySuggestions, uniqueSuggestions } from "./request-utils";
 
 export const checkText = async (text: string) => {
   const trimmed = text.trim();
@@ -168,7 +64,6 @@ export const checkText = async (text: string) => {
     setActiveElement(currentEditable);
 
     const currentElementText = getElementText(currentEditable).trim();
-
     if (!currentElementText || currentElementText !== trimmed) {
       return;
     }
@@ -186,53 +81,13 @@ export const checkText = async (text: string) => {
         : [],
     );
 
-    const rawErrorSource: unknown[] = Array.isArray(data.errorWords)
-      ? (data.errorWords as unknown[])
-      : [];
-
-    const rawErrorWords: ErrorItem[] = rawErrorSource
-      .filter(
-        (
-          item,
-        ): item is {
-          id?: unknown;
-          word?: unknown;
-          start?: unknown;
-          end?: unknown;
-        } => !!item && typeof item === "object",
-      )
-      .map((item, index) => {
-        const word = typeof item.word === "string" ? item.word.trim() : "";
-
-        const start =
-          typeof item.start === "number" && Number.isFinite(item.start)
-            ? item.start
-            : 0;
-
-        const end =
-          typeof item.end === "number" && Number.isFinite(item.end)
-            ? item.end
-            : start + word.length;
-
-        const id =
-          typeof item.id === "string" && item.id.trim()
-            ? item.id.trim()
-            : `err-pos-${index}-${start}-${end}`;
-
-        return {
-          id,
-          word,
-          start,
-          end,
-        };
-      })
-      .filter((item) => item.word.length > 0);
+    const rawErrorWords = parseErrorWords(data.errorWords);
 
     const hasLatin = /[A-Za-z]/.test(trimmed);
     const hasCyrillic = /[А-Яа-яӨөҮүЁё]/.test(trimmed);
     const isLatinInput = hasLatin && !hasCyrillic;
 
-    const errorWords: ErrorItem[] = isLatinInput ? [] : rawErrorWords;
+    const errorWords = isLatinInput ? [] : rawErrorWords;
 
     const displaySuggestions = buildDisplaySuggestions(
       trimmed,
@@ -244,14 +99,7 @@ export const checkText = async (text: string) => {
     const hasSentenceCorrection = corrected.length > 0 && corrected !== trimmed;
     const hasSuggestions = displaySuggestions.length > 0;
     const hasErrors = errorWords.length > 0;
-
     const isAutoAdvancing = shouldAutoAdvanceError;
-
-    console.log("РЭКҮЭСТ ЭХЭЛЛЭЭ", {
-      trimmed,
-      isAutoAdvancing,
-      lastAppliedText,
-    });
 
     clearHighlights(currentEditable);
     clearHighlightedErrors();
@@ -292,12 +140,6 @@ export const checkText = async (text: string) => {
           liveEditable instanceof HTMLInputElement ||
           liveEditable instanceof HTMLTextAreaElement
         ) {
-          console.log("АВТО НЕКСТ АЖИЛЛАЖ БАЙНА", {
-            items,
-            activeElementTag:
-              liveEditable instanceof HTMLElement ? liveEditable.tagName : null,
-          });
-
           const target = items[0];
 
           if (
@@ -342,10 +184,7 @@ export const checkText = async (text: string) => {
                   latestEditable.focus();
                   latestEditable.setSelectionRange(start, end);
 
-                  setSelectedErrorRange({
-                    start,
-                    end,
-                  });
+                  setSelectedErrorRange({ start, end });
 
                   renderSuggestionIndicator();
                   updateIndicatorPosition(latestEditable);
@@ -438,7 +277,7 @@ export const checkText = async (text: string) => {
       renderSuggestionIndicator();
       updateIndicatorPosition(currentEditable);
     }
-  } catch (error) {
+  } catch {
     clearSuggestion();
     clearHighlightedErrors();
     resetIndicatorVisualState();

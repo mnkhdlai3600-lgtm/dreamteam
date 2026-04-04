@@ -32,7 +32,7 @@ import {
 import { getHighlightedErrors } from "../error-state";
 import { focusHighlightedErrorById } from "../../dom";
 import type { HighlightErrorItem } from "../error-state";
-import { requestSuggestionsForWord } from "./request";
+import { requestSuggestionsForWord } from "./request-word";
 
 export const renderSuggestionIndicator = () => {
   const focusErrorForElement = (
