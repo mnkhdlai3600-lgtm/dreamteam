@@ -7,3 +7,6 @@ export * from "./highlight-wrap";
 export * from "./mode";
 export * from "./replace";
 export * from "./selection";
+export { replaceCurrentSelectionInContentEditable } from "./replace";
+export * from "./replace";
+export * from "./google-docs";

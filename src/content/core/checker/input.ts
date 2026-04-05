@@ -1,5 +1,5 @@
 import { removeIndicator, updateIndicatorPosition } from "../../ui";
-import { getElementText } from "../../dom";
+import { getElementText, resolveActiveEditable } from "../../dom";
 import { shouldSkipHandleInput } from "../guard";
 import {
   activeElement,
@@ -9,6 +9,7 @@ import {
   lastAppliedText,
   lastCheckedText,
   resetIndicatorVisualState,
+  setActiveElement,
   setDebounceTimer,
   setIndicatorVisualState,
   setIsSuggestionLoading,
@@ -20,46 +21,48 @@ import { renderSuggestionIndicator } from "./render";
 import { INPUT_DEBOUNCE_MS } from "../../../lib/constants";
 
 const clearPendingDebounce = () => {
-  if (debounceTimer) {
-    window.clearTimeout(debounceTimer);
-    setDebounceTimer(null);
-  }
+  if (!debounceTimer) return;
+  window.clearTimeout(debounceTimer);
+  setDebounceTimer(null);
 };
 
+const hasLatinText = (text: string) => /[A-Za-z]/.test(text);
+
 const getVisualStateFromText = (text: string) => {
-  const hasLatin = /[A-Za-z]/.test(text);
-  const hasCyrillic = /[А-Яа-яӨөҮүЁё]/.test(text);
+  return hasLatinText(text) ? "latin" : "idle";
+};
 
-  if (hasLatin && !hasCyrillic) {
-    return "latin" as const;
-  }
-
-  return "idle" as const;
+const resetEmptyState = (editable: HTMLElement) => {
+  clearPendingDebounce();
+  cancelPendingRequests();
+  setIsSuggestionLoading(false);
+  clearSuggestion();
+  resetIndicatorVisualState();
+  setSuggestionPhase("idle");
+  renderSuggestionIndicator();
+  updateIndicatorPosition(editable);
 };
 
 export const handleInput = () => {
-  if (shouldSkipHandleInput() || !activeElement) return;
+  if (shouldSkipHandleInput()) return;
 
-  updateIndicatorPosition(activeElement);
+  const currentEditable = resolveActiveEditable() ?? activeElement;
+  if (!currentEditable) return;
 
-  const text = getElementText(activeElement).trim();
+  setActiveElement(currentEditable);
+  updateIndicatorPosition(currentEditable);
+
+  const text = getElementText(currentEditable).trim();
 
   if (!text) {
-    clearPendingDebounce();
-    cancelPendingRequests();
-    setIsSuggestionLoading(false);
-    clearSuggestion();
-    resetIndicatorVisualState();
-    setSuggestionPhase("idle");
-    renderSuggestionIndicator();
-    updateIndicatorPosition(activeElement);
+    resetEmptyState(currentEditable);
     return;
   }
 
   setIndicatorVisualState(getVisualStateFromText(text));
   setSuggestionPhase("typing");
   renderSuggestionIndicator();
-  updateIndicatorPosition(activeElement);
+  updateIndicatorPosition(currentEditable);
 
   if (
     (lastAppliedText && text === lastAppliedText.trim()) ||
@@ -72,19 +75,17 @@ export const handleInput = () => {
 
   setDebounceTimer(
     window.setTimeout(() => {
-      if (shouldSkipHandleInput() || !activeElement) return;
+      if (shouldSkipHandleInput()) return;
 
-      const latestText = getElementText(activeElement).trim();
+      const latestEditable = resolveActiveEditable() ?? activeElement;
+      if (!latestEditable) return;
+
+      setActiveElement(latestEditable);
+
+      const latestText = getElementText(latestEditable).trim();
 
       if (!latestText) {
-        clearPendingDebounce();
-        cancelPendingRequests();
-        setIsSuggestionLoading(false);
-        clearSuggestion();
-        resetIndicatorVisualState();
-        setSuggestionPhase("idle");
-        renderSuggestionIndicator();
-        updateIndicatorPosition(activeElement);
+        resetEmptyState(latestEditable);
         return;
       }
 
@@ -100,28 +101,30 @@ export const handleInput = () => {
       setSuggestionPhase("loading");
       setLastCheckedText(latestText);
       renderSuggestionIndicator();
-      updateIndicatorPosition(activeElement);
+      updateIndicatorPosition(latestEditable);
 
       void checkText(latestText).finally(() => {
-        if (!activeElement) {
+        const liveEditable = resolveActiveEditable() ?? activeElement;
+
+        if (!liveEditable) {
           removeIndicator();
           return;
         }
 
-        const currentText = getElementText(activeElement).trim();
+        const currentText = getElementText(liveEditable).trim();
 
         if (!currentText) {
           clearSuggestion();
           resetIndicatorVisualState();
           setSuggestionPhase("idle");
           renderSuggestionIndicator();
-          updateIndicatorPosition(activeElement);
+          updateIndicatorPosition(liveEditable);
           return;
         }
 
         setIsSuggestionLoading(false);
         renderSuggestionIndicator();
-        updateIndicatorPosition(activeElement);
+        updateIndicatorPosition(liveEditable);
       });
     }, INPUT_DEBOUNCE_MS),
   );

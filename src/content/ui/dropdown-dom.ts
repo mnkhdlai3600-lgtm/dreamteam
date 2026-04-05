@@ -16,6 +16,15 @@ export const ensureDropdownStyles = () => {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+
+    #${DROPDOWN_ID}::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #${DROPDOWN_ID}::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(127, 127, 127, 0.35);
+    }
   `;
 
   document.head.appendChild(style);
@@ -38,19 +47,25 @@ export const createDropdownElement = async () => {
   const dropdown = document.createElement("div");
   dropdown.id = DROPDOWN_ID;
   dropdown.dataset.theme = theme;
+
   dropdown.style.position = "fixed";
   dropdown.style.zIndex = "999999";
-  dropdown.style.borderRadius = "14px";
-  dropdown.style.padding = "8px";
+  dropdown.style.borderRadius = "12px";
+  dropdown.style.padding = "6px";
   dropdown.style.background = styles.panelBackground;
   dropdown.style.backdropFilter = "blur(10px)";
   dropdown.style.boxShadow = styles.shadow;
   dropdown.style.border = styles.panelBorder;
   dropdown.style.color = styles.panelText;
-  dropdown.style.fontSize = "13px";
+  dropdown.style.fontSize = "12px";
   dropdown.style.fontFamily =
     "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  dropdown.style.maxHeight = "260px";
+
+  dropdown.style.width = "240px";
+  dropdown.style.minWidth = "240px";
+  dropdown.style.maxWidth = "240px";
+  dropdown.style.maxHeight = "220px";
+  dropdown.style.overflowX = "hidden";
   dropdown.style.overflowY = "auto";
 
   return dropdown;

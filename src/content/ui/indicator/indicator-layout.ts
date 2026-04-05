@@ -6,18 +6,23 @@ export const positionDotIndicator = (
   container: HTMLDivElement,
 ) => {
   const anchorRect = getTextEndAnchorRect(target);
-  const viewportPadding = 8;
-  const gap = 6;
+  const viewportPadding = 12;
+  const sideGap = 5;
 
   let top = anchorRect.top + anchorRect.height / 2 - container.offsetHeight / 2;
-  let left = anchorRect.right + gap;
+  let left = anchorRect.right + sideGap;
 
   if (left + container.offsetWidth > window.innerWidth - viewportPadding) {
-    left = anchorRect.left - container.offsetWidth - gap;
+    left = anchorRect.left - container.offsetWidth - sideGap;
   }
 
-  if (left < viewportPadding) left = viewportPadding;
-  if (top < viewportPadding) top = viewportPadding;
+  if (left < viewportPadding) {
+    left = viewportPadding;
+  }
+
+  if (top < viewportPadding) {
+    top = viewportPadding;
+  }
 
   if (top + container.offsetHeight > window.innerHeight - viewportPadding) {
     top = window.innerHeight - container.offsetHeight - viewportPadding;

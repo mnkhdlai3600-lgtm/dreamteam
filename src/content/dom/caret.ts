@@ -5,7 +5,7 @@ const createMirrorForTextControl = (
   const div = document.createElement("div");
   const style = window.getComputedStyle(el);
 
-  const properties = [
+  const props = [
     "boxSizing",
     "width",
     "height",
@@ -24,17 +24,14 @@ const createMirrorForTextControl = (
     "fontWeight",
     "fontStretch",
     "fontSize",
-    "fontSizeAdjust",
     "lineHeight",
     "fontFamily",
     "letterSpacing",
-    "textTransform",
     "textAlign",
     "textIndent",
-    "textDecoration",
-    "textRendering",
-    "wordSpacing",
+    "textTransform",
     "whiteSpace",
+    "wordSpacing",
   ] as const;
 
   div.style.position = "fixed";
@@ -45,18 +42,17 @@ const createMirrorForTextControl = (
   div.style.whiteSpace = el instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
   div.style.wordWrap = "break-word";
 
-  for (const prop of properties) {
+  for (const prop of props) {
     div.style[prop] = style[prop];
   }
 
-  const value = el.value ?? "";
-  const before = value.slice(0, caretIndex);
-  const after = value.slice(caretIndex);
+  const before = el.value.slice(0, caretIndex);
+  const after = el.value.slice(caretIndex);
 
   div.textContent = before;
 
   const marker = document.createElement("span");
-  marker.textContent = after.length > 0 ? after[0] : "\u200b";
+  marker.textContent = after[0] || "\u200b";
   div.appendChild(marker);
 
   if (after.length > 1) {
@@ -64,8 +60,40 @@ const createMirrorForTextControl = (
   }
 
   document.body.appendChild(div);
-
   return { div, marker };
+};
+
+const getContentEditableCaretRect = (el: HTMLElement): DOMRect | null => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+
+  const range = selection.getRangeAt(0).cloneRange();
+  range.collapse(true);
+
+  const directRect = range.getBoundingClientRect();
+  if (directRect.width || directRect.height) return directRect;
+
+  const marker = document.createElement("span");
+  marker.textContent = "\u200b";
+  marker.setAttribute("data-bolor-caret-marker", "true");
+
+  range.insertNode(marker);
+
+  const markerRect = marker.getBoundingClientRect();
+  const cleanupRange = document.createRange();
+  cleanupRange.setStartAfter(marker);
+  cleanupRange.collapse(true);
+
+  selection.removeAllRanges();
+  selection.addRange(cleanupRange);
+  marker.remove();
+
+  if (markerRect.width || markerRect.height) {
+    return new DOMRect(markerRect.left, markerRect.top, 1, markerRect.height);
+  }
+
+  const fallback = el.getBoundingClientRect();
+  return new DOMRect(fallback.left, fallback.top, 1, fallback.height);
 };
 
 export const getCaretClientRect = (el: HTMLElement): DOMRect | null => {
@@ -80,38 +108,13 @@ export const getCaretClientRect = (el: HTMLElement): DOMRect | null => {
 
     const left =
       inputRect.left + (markerRect.left - mirrorRect.left) - el.scrollLeft;
-
     const top =
       inputRect.top + (markerRect.top - mirrorRect.top) - el.scrollTop;
-
     const height = parseFloat(style.lineHeight) || inputRect.height * 0.6;
 
-    document.body.removeChild(div);
-
+    div.remove();
     return new DOMRect(left, top, 1, height);
   }
 
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    return null;
-  }
-
-  const range = selection.getRangeAt(0).cloneRange();
-  range.collapse(true);
-
-  const rects = range.getClientRects();
-  if (rects.length > 0) {
-    return rects[0];
-  }
-
-  const fallbackRange = document.createRange();
-  fallbackRange.selectNodeContents(el);
-  fallbackRange.collapse(false);
-
-  const fallbackRects = fallbackRange.getClientRects();
-  if (fallbackRects.length > 0) {
-    return fallbackRects[0];
-  }
-
-  return el.getBoundingClientRect();
+  return getContentEditableCaretRect(el);
 };

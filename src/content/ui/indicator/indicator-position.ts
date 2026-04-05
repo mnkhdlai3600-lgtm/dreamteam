@@ -4,13 +4,15 @@ export const getIndicatorPosition = (
   popupHeight: number,
   hasSuggestionList = false,
 ) => {
-  const viewportPadding = 8;
+  const viewportPadding = 12;
+  const sideGap = hasSuggestionList ? 10 : 5;
+  const verticalGap = hasSuggestionList ? 10 : 0;
 
   let top = hasSuggestionList
-    ? rect.bottom + 2
+    ? rect.bottom + verticalGap
     : rect.top + rect.height / 2 - popupHeight / 2;
 
-  let left = hasSuggestionList ? rect.left - 8 : rect.left - popupWidth / 2 + 1;
+  let left = hasSuggestionList ? rect.left : rect.right + sideGap;
 
   if (hasSuggestionList) {
     if (left + popupWidth > window.innerWidth - viewportPadding) {
@@ -22,11 +24,11 @@ export const getIndicatorPosition = (
     }
 
     if (top + popupHeight > window.innerHeight - viewportPadding) {
-      top = rect.top - popupHeight - 8;
+      top = rect.top - popupHeight - verticalGap;
     }
   } else {
     if (left + popupWidth > window.innerWidth - viewportPadding) {
-      left = window.innerWidth - popupWidth - viewportPadding;
+      left = rect.left - popupWidth - sideGap;
     }
 
     if (left < viewportPadding) {
@@ -34,7 +36,9 @@ export const getIndicatorPosition = (
     }
   }
 
-  if (top < viewportPadding) top = viewportPadding;
+  if (top < viewportPadding) {
+    top = viewportPadding;
+  }
 
   if (top + popupHeight > window.innerHeight - viewportPadding) {
     top = window.innerHeight - popupHeight - viewportPadding;

@@ -1,31 +1,31 @@
 import { activeElement } from "../core/state";
+import {
+  getGoogleDocsEditorRoot,
+  getGoogleDocsText,
+  isGoogleDocsSite,
+  resolveGoogleDocsActiveEditable,
+} from "./google-docs";
 
 export const isMessengerSite = () => {
   const host = window.location.hostname;
   return host.includes("messenger.com") || host.includes("facebook.com");
 };
 
-const isTextInputType = (type: string) => {
-  return ["text", "search", "email", "url", "tel"].includes(type);
-};
+export const isGmailSite = () =>
+  window.location.hostname.includes("mail.google.com");
+
+const isTextInputType = (type: string) =>
+  ["text", "search", "email", "url", "tel"].includes(type);
 
 const isContentEditableLike = (el: HTMLElement) => {
-  const contentEditableAttr = el.getAttribute("contenteditable");
-
-  return (
-    el.isContentEditable ||
-    contentEditableAttr === "true" ||
-    contentEditableAttr === "plaintext-only"
-  );
+  const value = el.getAttribute("contenteditable");
+  return el.isContentEditable || value === "true" || value === "plaintext-only";
 };
 
 export const isEditableElement = (el: Element): el is HTMLElement => {
   if (!(el instanceof HTMLElement)) return false;
   if (el instanceof HTMLTextAreaElement) return true;
-
-  if (el instanceof HTMLInputElement) {
-    return isTextInputType(el.type);
-  }
+  if (el instanceof HTMLInputElement) return isTextInputType(el.type);
 
   return isContentEditableLike(el) || el.getAttribute("role") === "textbox";
 };
@@ -38,16 +38,30 @@ export const getMessengerEditorRoot = (
   const root = target.closest(
     [
       '[contenteditable="true"][role="textbox"]',
-      '[role="textbox"][contenteditable="true"]',
       '[contenteditable="plaintext-only"][role="textbox"]',
-      '[role="textbox"][contenteditable="plaintext-only"]',
       '[contenteditable][role="textbox"]',
       '[contenteditable="true"][data-lexical-editor="true"]',
-      '[data-lexical-editor="true"][contenteditable="true"]',
       '[contenteditable="plaintext-only"][data-lexical-editor="true"]',
-      '[data-lexical-editor="true"][contenteditable="plaintext-only"]',
       '[aria-label][contenteditable="true"][role="textbox"]',
       '[aria-label][contenteditable="plaintext-only"][role="textbox"]',
+    ].join(","),
+  );
+
+  return root instanceof HTMLElement ? root : null;
+};
+
+export const getGmailEditorRoot = (
+  target: EventTarget | null,
+): HTMLElement | null => {
+  if (!(target instanceof Element)) return null;
+
+  const root = target.closest(
+    [
+      'div[role="textbox"][g_editable="true"]',
+      'div[contenteditable="true"][g_editable="true"]',
+      'div[aria-label="Message Body"][role="textbox"]',
+      'div[aria-label][role="textbox"][contenteditable="true"]',
+      'div[role="textbox"][contenteditable="true"]',
     ].join(","),
   );
 
@@ -60,8 +74,18 @@ export const getEditableElement = (
   if (!(target instanceof Element)) return null;
 
   if (isMessengerSite()) {
-    const messengerEditor = getMessengerEditorRoot(target);
-    if (messengerEditor) return messengerEditor;
+    const root = getMessengerEditorRoot(target);
+    if (root) return root;
+  }
+
+  if (isGmailSite()) {
+    const root = getGmailEditorRoot(target);
+    if (root) return root;
+  }
+
+  if (isGoogleDocsSite()) {
+    const root = getGoogleDocsEditorRoot(target);
+    if (root) return root;
   }
 
   if (isEditableElement(target)) return target;
@@ -92,6 +116,11 @@ export const getEventEditableTarget = (event: Event) => {
     }
   }
 
+  if (isGoogleDocsSite()) {
+    const docsEditable = resolveGoogleDocsActiveEditable();
+    if (docsEditable) return docsEditable;
+  }
+
   return getEditableElement(event.target);
 };
 
@@ -109,6 +138,11 @@ export const getElementText = (el: HTMLElement) => {
     return el.value;
   }
 
+  if (isGoogleDocsSite()) {
+    const docsText = getGoogleDocsText(el);
+    if (docsText) return normalizeText(docsText);
+  }
+
   if (isContentEditableLike(el) || el.getAttribute("role") === "textbox") {
     return normalizeText(el.innerText || el.textContent || "");
   }
@@ -124,21 +158,22 @@ export const verifyElementText = (el: HTMLElement, expected: string) => {
 
 export const resolveActiveEditable = () => {
   const current = document.activeElement;
-  if (current) {
-    const editable = getEditableElement(current);
-    if (editable) return editable;
+  const fromActive = current ? getEditableElement(current) : null;
+  if (fromActive) return fromActive;
+
+  if (isGoogleDocsSite()) {
+    const docsEditable = resolveGoogleDocsActiveEditable();
+    if (docsEditable) return docsEditable;
   }
 
   const selection = window.getSelection();
-  if (selection?.anchorNode) {
-    const node =
-      selection.anchorNode instanceof Element
-        ? selection.anchorNode
-        : selection.anchorNode.parentElement;
+  const node =
+    selection?.anchorNode instanceof Element
+      ? selection.anchorNode
+      : (selection?.anchorNode?.parentElement ?? null);
 
-    const editable = getEditableElement(node);
-    if (editable) return editable;
-  }
+  const fromSelection = getEditableElement(node);
+  if (fromSelection) return fromSelection;
 
   return activeElement;
 };

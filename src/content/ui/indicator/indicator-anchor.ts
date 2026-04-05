@@ -1,97 +1,76 @@
-export const getTextEndRectForInput = (
-  el: HTMLInputElement | HTMLTextAreaElement,
-): DOMRect => {
-  const div = document.createElement("div");
-  const style = window.getComputedStyle(el);
+import { getCaretClientRect } from "../../dom/caret";
 
-  const properties = [
-    "boxSizing",
-    "width",
-    "height",
-    "overflowX",
-    "overflowY",
-    "borderTopWidth",
-    "borderRightWidth",
-    "borderBottomWidth",
-    "borderLeftWidth",
-    "paddingTop",
-    "paddingRight",
-    "paddingBottom",
-    "paddingLeft",
-    "fontStyle",
-    "fontVariant",
-    "fontWeight",
-    "fontStretch",
-    "fontSize",
-    "fontSizeAdjust",
-    "lineHeight",
-    "fontFamily",
-    "letterSpacing",
-    "textTransform",
-    "textAlign",
-    "textIndent",
-    "textDecoration",
-    "textRendering",
-    "wordSpacing",
-    "whiteSpace",
-  ] as const;
-
-  div.style.position = "fixed";
-  div.style.left = "-9999px";
-  div.style.top = "0";
-  div.style.visibility = "hidden";
-  div.style.pointerEvents = "none";
-  div.style.whiteSpace = el instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
-  div.style.wordWrap = "break-word";
-
-  for (const prop of properties) {
-    div.style[prop] = style[prop];
-  }
-
-  div.textContent = el.value ?? "";
-
-  const marker = document.createElement("span");
-  marker.textContent = "\u200b";
-  div.appendChild(marker);
-
-  document.body.appendChild(div);
-
-  const markerRect = marker.getBoundingClientRect();
-  const mirrorRect = div.getBoundingClientRect();
-  const inputRect = el.getBoundingClientRect();
-  const lineHeight = parseFloat(style.lineHeight) || inputRect.height * 0.6;
-
-  const rect = new DOMRect(
-    inputRect.left + (markerRect.left - mirrorRect.left) - el.scrollLeft,
-    inputRect.top + (markerRect.top - mirrorRect.top) - el.scrollTop,
-    1,
-    lineHeight,
-  );
-
-  document.body.removeChild(div);
-  return rect;
+const isValidRect = (rect: DOMRect | null) => {
+  return !!rect && Number.isFinite(rect.top) && Number.isFinite(rect.left);
 };
 
-export const getTextEndRectForEditable = (el: HTMLElement): DOMRect => {
-  const range = document.createRange();
-  range.selectNodeContents(el);
+const getSelectionAnchorRect = (target: HTMLElement): DOMRect | null => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+
+  const sourceRange = selection.getRangeAt(0);
+
+  if (
+    !target.contains(sourceRange.startContainer) &&
+    !target.contains(sourceRange.endContainer) &&
+    sourceRange.startContainer !== target &&
+    sourceRange.endContainer !== target
+  ) {
+    return null;
+  }
+
+  const range = sourceRange.cloneRange();
   range.collapse(false);
 
   const rects = range.getClientRects();
-  if (rects.length > 0) {
-    return rects[rects.length - 1];
+  const rect = rects[rects.length - 1] ?? range.getBoundingClientRect();
+
+  if (!rect || (!rect.width && !rect.height)) {
+    return null;
   }
 
-  return el.getBoundingClientRect();
+  return new DOMRect(rect.left, rect.top, Math.max(1, rect.width), rect.height);
 };
 
-export const getTextEndAnchorRect = (target: HTMLElement): DOMRect => {
+const getFallbackAnchorRect = (target: HTMLElement): DOMRect => {
+  const rect = target.getBoundingClientRect();
+
   if (
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement
   ) {
-    return getTextEndRectForInput(target);
+    return new DOMRect(
+      rect.right - 2,
+      rect.top + rect.height / 2 - 10,
+      1,
+      Math.max(20, rect.height * 0.6),
+    );
   }
 
-  return getTextEndRectForEditable(target);
+  return new DOMRect(
+    rect.right - 2,
+    rect.top + 6,
+    1,
+    Math.max(20, rect.height - 12),
+  );
+};
+
+export const getTextEndAnchorRect = (target: HTMLElement): DOMRect => {
+  const selectionRect = getSelectionAnchorRect(target);
+
+  if (selectionRect && isValidRect(selectionRect)) {
+    return selectionRect;
+  }
+
+  const caretRect = getCaretClientRect(target);
+
+  if (
+    caretRect &&
+    isValidRect(caretRect) &&
+    (caretRect.width > 0 || caretRect.height > 0)
+  ) {
+    return caretRect;
+  }
+
+  return getFallbackAnchorRect(target);
 };

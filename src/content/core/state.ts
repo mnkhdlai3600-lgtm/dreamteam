@@ -174,6 +174,8 @@ export const getNextErrorNavigationIndex = (total: number) => {
 };
 
 export let selectedErrorRange: { start: number; end: number } | null = null;
+export let focusedErrorId: string | null = null;
+export let shouldAutoAdvanceError = false;
 
 export const setSelectedErrorRange = (
   range: { start: number; end: number } | null,
@@ -185,7 +187,13 @@ export const clearSelectedErrorRange = () => {
   selectedErrorRange = null;
 };
 
-export let shouldAutoAdvanceError = false;
+export const setFocusedErrorId = (value: string | null) => {
+  focusedErrorId = value;
+};
+
+export const clearFocusedErrorId = () => {
+  focusedErrorId = null;
+};
 
 export const setShouldAutoAdvanceError = (value: boolean) => {
   shouldAutoAdvanceError = value;

@@ -81,13 +81,12 @@ export const focusHighlightedErrorById = (root: HTMLElement, id: string) => {
   const selection = window.getSelection();
   if (!selection) return true;
 
-  const textNode = errorEl.firstChild;
-  if (!textNode) return true;
-
   try {
     const range = document.createRange();
-    range.setStart(textNode, 0);
-    range.setEnd(textNode, textNode.textContent?.length ?? 0);
+
+    range.setStartAfter(errorEl);
+    range.setEndAfter(errorEl);
+
     selection.removeAllRanges();
     selection.addRange(range);
   } catch {

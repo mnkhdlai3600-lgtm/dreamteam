@@ -90,6 +90,7 @@ const createSuggestionItem = async (
   const item = document.createElement("button");
   item.type = "button";
   item.textContent = suggestion;
+  item.title = suggestion;
   item.dataset.suggestionItem = "true";
 
   item.style.width = "100%";
@@ -103,15 +104,26 @@ const createSuggestionItem = async (
   item.style.color = styles.panelText;
   item.style.cursor = "pointer";
   item.style.outline = "none";
+  item.style.fontSize = "13px";
+  item.style.lineHeight = "1.35";
+  item.style.whiteSpace = "nowrap";
+  item.style.overflow = "hidden";
+  item.style.textOverflow = "ellipsis";
 
   item.addEventListener("mouseenter", () => {
     setSelectedSuggestionIndex(index);
     void refreshSuggestionDropdownHighlight();
   });
 
+  item.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
   item.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
+    setSelectedSuggestionIndex(index);
     onPick(suggestion);
   });
 
@@ -143,7 +155,6 @@ export const renderSuggestionDropdown = async (
   if (!isSuggestionLoading && !latestSuggestions.length) return;
 
   const dropdown = await createDropdownElement();
-
   if (renderToken !== dropdownRenderToken) return;
   if (!hasDropdownAnchor()) return;
 

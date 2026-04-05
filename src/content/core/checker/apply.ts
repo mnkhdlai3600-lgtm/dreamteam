@@ -3,34 +3,38 @@ import { removeSuggestionDropdown, updateIndicatorPosition } from "../../ui";
 import {
   getElementText,
   resolveActiveEditable,
-  verifyElementText,
   setElementText,
-  clearHighlights,
-  flashCorrectedWord,
+  replaceHighlightedErrorText,
+  replaceRangeInContentEditable,
+  replaceCurrentSelectionInContentEditable,
 } from "../../dom";
+import { getHighlightedErrors } from "../error-state";
 import { shouldSkipApplySuggestion } from "../guard";
 import {
+  activeElement,
+  cancelPendingRequests,
+  clearFocusedErrorId,
+  clearSelectedErrorRange,
   clearSuggestion,
+  debounceTimer,
+  focusedErrorId,
   latestSuggestion,
+  selectedErrorRange,
   setActiveElement,
-  setIndicatorErrorCount,
-  setIndicatorVisualState,
+  setDebounceTimer,
   setIsApplyingHotkey,
   setIsApplyingSuggestion,
   setIsSuggestionLoading,
   setLastAppliedText,
   setLastCheckedText,
   setLatestSuggestion,
-  setSuggestionPhase,
-  selectedErrorRange,
-  clearSelectedErrorRange,
   setShouldAutoAdvanceError,
-  cancelPendingRequests,
-  debounceTimer,
-  setDebounceTimer,
+  setSuggestionPhase,
 } from "../state";
 import { APPLY_GUARD_MS, APPLY_RESET_MS } from "../../../lib/constants";
 import { checkText } from "./request";
+
+const hasLatinText = (text: string) => /[A-Za-z]/.test(text);
 
 const replaceSelectedRangeInInput = (
   element: HTMLInputElement | HTMLTextAreaElement,
@@ -55,17 +59,23 @@ const replaceSelectedRangeInInput = (
 };
 
 export const applySuggestion = () => {
-  const resolved = resolveActiveEditable();
-  if (shouldSkipApplySuggestion() || !resolved || !latestSuggestion) return;
+  const resolved = activeElement ?? resolveActiveEditable();
+  const suggestion = latestSuggestion;
+  const targetErrorId = focusedErrorId;
+
+  if (shouldSkipApplySuggestion() || !resolved || !suggestion) return;
 
   setActiveElement(resolved);
 
   const currentText = getElementText(resolved).trim();
   if (!currentText) return;
 
-  setIsApplyingHotkey(true);
+  const isLatinInput = hasLatinText(currentText);
+  const targetError = targetErrorId
+    ? (getHighlightedErrors().find((item) => item.id === targetErrorId) ?? null)
+    : null;
 
-  const suggestion = latestSuggestion;
+  setIsApplyingHotkey(true);
   setLatestSuggestion(null);
   setIsApplyingSuggestion(true);
   setIsSuggestionLoading(false);
@@ -94,26 +104,53 @@ export const applySuggestion = () => {
       const hasLiveSelection =
         (resolved.selectionStart ?? 0) !== (resolved.selectionEnd ?? 0);
 
-      if (hasSavedRange || hasLiveSelection) {
+      if (!isLatinInput && (hasSavedRange || hasLiveSelection)) {
         nextText = replaceSelectedRangeInInput(resolved, suggestion);
         ok = true;
       } else {
         resolved.value = suggestion;
-        const nextCaret = suggestion.length;
-        resolved.setSelectionRange(nextCaret, nextCaret);
+        resolved.setSelectionRange(suggestion.length, suggestion.length);
         nextText = suggestion;
         ok = true;
       }
-    } else {
+    } else if (isLatinInput) {
       ok = setElementText(resolved, suggestion);
       nextText = suggestion;
+    } else {
+      ok = replaceCurrentSelectionInContentEditable(
+        resolved,
+        suggestion,
+        targetError?.word,
+      );
+
+      if (
+        !ok &&
+        selectedErrorRange &&
+        selectedErrorRange.end > selectedErrorRange.start
+      ) {
+        ok = replaceRangeInContentEditable(
+          resolved,
+          selectedErrorRange.start,
+          selectedErrorRange.end,
+          suggestion,
+          targetError?.word,
+        );
+      }
+
+      if (!ok && targetErrorId) {
+        ok = replaceHighlightedErrorText(resolved, targetErrorId, suggestion);
+      }
+
+      nextText = getElementText(resolved).trim();
     }
 
+    clearSuggestion();
+    clearSelectedErrorRange();
+    clearFocusedErrorId();
+    setSuggestionPhase("idle");
+    setIsSuggestionLoading(false);
+
     if (!ok) {
-      clearSelectedErrorRange();
-      clearSuggestion();
-      setSuggestionPhase("idle");
-      setIsSuggestionLoading(false);
       renderSuggestionIndicator();
       updateIndicatorPosition(resolved);
       return;
@@ -121,56 +158,10 @@ export const applySuggestion = () => {
 
     setLastAppliedText(nextText);
     setLastCheckedText(nextText.trim());
+    setActiveElement(resolved);
+    setShouldAutoAdvanceError(!isLatinInput);
 
-    console.log("АППЛАЙ ӨМНӨ", {
-      nextText,
-      selectedErrorRange,
-      suggestion,
-    });
-
-    if (
-      resolved instanceof HTMLInputElement ||
-      resolved instanceof HTMLTextAreaElement
-    ) {
-      clearSuggestion();
-      clearSelectedErrorRange();
-      setSuggestionPhase("idle");
-      setIsSuggestionLoading(false);
-
-      setShouldAutoAdvanceError(true);
-
-      console.log("АППЛАЙ ДАРАА", {
-        shouldAutoAdvance: true,
-        nextText,
-      });
-
-      setActiveElement(resolved);
-      void checkText(nextText);
-      return;
-    }
-
-    clearSuggestion();
-    clearSelectedErrorRange();
-    setSuggestionPhase("idle");
-    setIsSuggestionLoading(false);
-
-    clearHighlights(resolved);
-    flashCorrectedWord(resolved, suggestion);
-
-    setIndicatorVisualState("success");
-    setIndicatorErrorCount(0);
-
-    renderSuggestionIndicator();
-    updateIndicatorPosition(resolved);
-
-    window.setTimeout(() => {
-      if (!verifyElementText(resolved, nextText)) return;
-
-      setIndicatorVisualState("idle");
-      setIndicatorErrorCount(0);
-      renderSuggestionIndicator();
-      updateIndicatorPosition(resolved);
-    }, 1200);
+    void checkText(nextText);
   } finally {
     window.setTimeout(() => setIsApplyingSuggestion(false), APPLY_RESET_MS);
     window.setTimeout(() => setIsApplyingHotkey(false), APPLY_GUARD_MS);

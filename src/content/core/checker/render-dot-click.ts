@@ -13,6 +13,7 @@ import {
 import {
   getNextErrorNavigationIndex,
   resetErrorNavigationIndex,
+  shouldAutoAdvanceError,
 } from "../state";
 import { getHighlightedErrors } from "../error-state";
 import { removeSuggestionDropdown } from "../../ui";
@@ -34,6 +35,10 @@ export const handleDotClick = async ({ rerender }: HandleDotClickParams) => {
   if (!errors.length) {
     resetErrorNavigationIndex();
     return;
+  }
+
+  if (!shouldAutoAdvanceError) {
+    resetErrorNavigationIndex();
   }
 
   setIndicatorVisualState("error");

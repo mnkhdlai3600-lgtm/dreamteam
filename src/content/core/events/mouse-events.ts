@@ -1,10 +1,6 @@
-import { activeElement, latestSuggestions } from "../state";
+import { activeElement, suggestionPhase } from "../state";
 import { getHoveredErrorId, setHoveredErrorId } from "../error-state";
-import {
-  createIndicator,
-  removeIndicator,
-  updateIndicatorPosition,
-} from "../../ui";
+import { removeIndicator, updateIndicatorPosition } from "../../ui";
 
 const getErrorTarget = (target: EventTarget | null) => {
   if (!(target instanceof Element)) return null;
@@ -28,12 +24,10 @@ export const registerMouseEvents = () => {
       setHoveredErrorId(errorId);
 
       if (!activeElement) return;
-      if (!latestSuggestions.length) return;
 
-      void createIndicator(activeElement, "", {
-        suggestions: latestSuggestions,
-        selectedIndex: 0,
-      });
+      if (suggestionPhase === "suggesting" || suggestionPhase === "loading") {
+        updateIndicatorPosition(activeElement);
+      }
     },
     true,
   );

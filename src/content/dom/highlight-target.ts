@@ -1,4 +1,4 @@
-import { isMessengerSite } from "./editable";
+import { isGmailSite, isMessengerSite } from "./editable";
 
 export const isInlineEditableElement = (el: HTMLElement | null) => {
   if (!el) return false;
@@ -50,6 +50,7 @@ export const canInlineHighlight = (root: HTMLElement) => {
 
   if (!isInlineEditableElement(target)) return false;
   if (isMessengerSite()) return false;
+  if (isGmailSite()) return false;
 
   return true;
 };
