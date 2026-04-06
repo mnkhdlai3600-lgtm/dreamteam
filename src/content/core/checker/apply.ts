@@ -22,6 +22,8 @@ import {
   selectedErrorRange,
   setActiveElement,
   setDebounceTimer,
+  setIndicatorErrorCount,
+  setIndicatorVisualState,
   setIsApplyingHotkey,
   setIsApplyingSuggestion,
   setIsSuggestionLoading,
@@ -161,7 +163,14 @@ export const applySuggestion = () => {
     setActiveElement(resolved);
     setShouldAutoAdvanceError(!isLatinInput);
 
-    void checkText(nextText);
+    setIndicatorVisualState("success");
+    setIndicatorErrorCount(0);
+    renderSuggestionIndicator();
+    updateIndicatorPosition(resolved);
+
+    window.setTimeout(() => {
+      void checkText(nextText);
+    }, 250);
   } finally {
     window.setTimeout(() => setIsApplyingSuggestion(false), APPLY_RESET_MS);
     window.setTimeout(() => setIsApplyingHotkey(false), APPLY_GUARD_MS);

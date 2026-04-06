@@ -30,6 +30,18 @@ export const isEditableElement = (el: Element): el is HTMLElement => {
   return isContentEditableLike(el) || el.getAttribute("role") === "textbox";
 };
 
+const getSelectionElement = () => {
+  const selection = window.getSelection();
+  if (!selection) return null;
+
+  const node =
+    selection.anchorNode instanceof Element
+      ? selection.anchorNode
+      : (selection.anchorNode?.parentElement ?? null);
+
+  return node instanceof HTMLElement ? node : null;
+};
+
 export const getMessengerEditorRoot = (
   target: EventTarget | null,
 ): HTMLElement | null => {
@@ -57,11 +69,9 @@ export const getGmailEditorRoot = (
 
   const root = target.closest(
     [
+      'div[role="textbox"][g_editable="true"][contenteditable="true"]',
       'div[role="textbox"][g_editable="true"]',
-      'div[contenteditable="true"][g_editable="true"]',
-      'div[aria-label="Message Body"][role="textbox"]',
-      'div[aria-label][role="textbox"][contenteditable="true"]',
-      'div[role="textbox"][contenteditable="true"]',
+      'div[aria-label="Message Body"][role="textbox"][contenteditable="true"]',
     ].join(","),
   );
 
@@ -116,6 +126,11 @@ export const getEventEditableTarget = (event: Event) => {
     }
   }
 
+  if (isGmailSite()) {
+    const fromSelection = getEditableElement(getSelectionElement());
+    if (fromSelection) return fromSelection;
+  }
+
   if (isGoogleDocsSite()) {
     const docsEditable = resolveGoogleDocsActiveEditable();
     if (docsEditable) return docsEditable;
@@ -139,7 +154,7 @@ export const getElementText = (el: HTMLElement) => {
   }
 
   if (isGoogleDocsSite()) {
-    const docsText = getGoogleDocsText(el);
+    const docsText = getGoogleDocsText();
     if (docsText) return normalizeText(docsText);
   }
 
@@ -157,22 +172,21 @@ export const verifyElementText = (el: HTMLElement, expected: string) => {
 };
 
 export const resolveActiveEditable = () => {
-  const current = document.activeElement;
-  const fromActive = current ? getEditableElement(current) : null;
-  if (fromActive) return fromActive;
+  if (isGmailSite()) {
+    const fromSelection = getEditableElement(getSelectionElement());
+    if (fromSelection) return fromSelection;
+  }
 
   if (isGoogleDocsSite()) {
     const docsEditable = resolveGoogleDocsActiveEditable();
     if (docsEditable) return docsEditable;
   }
 
-  const selection = window.getSelection();
-  const node =
-    selection?.anchorNode instanceof Element
-      ? selection.anchorNode
-      : (selection?.anchorNode?.parentElement ?? null);
+  const current = document.activeElement;
+  const fromActive = current ? getEditableElement(current) : null;
+  if (fromActive) return fromActive;
 
-  const fromSelection = getEditableElement(node);
+  const fromSelection = getEditableElement(getSelectionElement());
   if (fromSelection) return fromSelection;
 
   return activeElement;

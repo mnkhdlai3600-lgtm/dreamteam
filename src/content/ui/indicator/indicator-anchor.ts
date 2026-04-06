@@ -1,35 +1,7 @@
-import { getCaretClientRect } from "../../dom/caret";
+import { getSelectionClientRect, getTextEndClientRect } from "../../dom/caret";
 
 const isValidRect = (rect: DOMRect | null) => {
   return !!rect && Number.isFinite(rect.top) && Number.isFinite(rect.left);
-};
-
-const getSelectionAnchorRect = (target: HTMLElement): DOMRect | null => {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return null;
-
-  const sourceRange = selection.getRangeAt(0);
-
-  if (
-    !target.contains(sourceRange.startContainer) &&
-    !target.contains(sourceRange.endContainer) &&
-    sourceRange.startContainer !== target &&
-    sourceRange.endContainer !== target
-  ) {
-    return null;
-  }
-
-  const range = sourceRange.cloneRange();
-  range.collapse(false);
-
-  const rects = range.getClientRects();
-  const rect = rects[rects.length - 1] ?? range.getBoundingClientRect();
-
-  if (!rect || (!rect.width && !rect.height)) {
-    return null;
-  }
-
-  return new DOMRect(rect.left, rect.top, Math.max(1, rect.width), rect.height);
 };
 
 const getFallbackAnchorRect = (target: HTMLElement): DOMRect => {
@@ -40,7 +12,7 @@ const getFallbackAnchorRect = (target: HTMLElement): DOMRect => {
     target instanceof HTMLTextAreaElement
   ) {
     return new DOMRect(
-      rect.right - 2,
+      rect.left + 4,
       rect.top + rect.height / 2 - 10,
       1,
       Math.max(20, rect.height * 0.6),
@@ -48,7 +20,7 @@ const getFallbackAnchorRect = (target: HTMLElement): DOMRect => {
   }
 
   return new DOMRect(
-    rect.right - 2,
+    rect.left + 4,
     rect.top + 6,
     1,
     Math.max(20, rect.height - 12),
@@ -56,20 +28,43 @@ const getFallbackAnchorRect = (target: HTMLElement): DOMRect => {
 };
 
 export const getTextEndAnchorRect = (target: HTMLElement): DOMRect => {
-  const selectionRect = getSelectionAnchorRect(target);
+  const text =
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
+      ? target.value.trim()
+      : (target.textContent ?? "").trim();
 
-  if (selectionRect && isValidRect(selectionRect)) {
-    return selectionRect;
+  if (!text) {
+    const selectionRect = getSelectionClientRect(target);
+
+    if (
+      selectionRect &&
+      isValidRect(selectionRect) &&
+      (selectionRect.width > 0 || selectionRect.height > 0)
+    ) {
+      return selectionRect;
+    }
+
+    return getFallbackAnchorRect(target);
   }
 
-  const caretRect = getCaretClientRect(target);
+  const textEndRect = getTextEndClientRect(target);
 
   if (
-    caretRect &&
-    isValidRect(caretRect) &&
-    (caretRect.width > 0 || caretRect.height > 0)
+    textEndRect &&
+    isValidRect(textEndRect) &&
+    (textEndRect.width > 0 || textEndRect.height > 0)
   ) {
-    return caretRect;
+    return textEndRect;
+  }
+
+  const selectionRect = getSelectionClientRect(target);
+
+  if (
+    selectionRect &&
+    isValidRect(selectionRect) &&
+    (selectionRect.width > 0 || selectionRect.height > 0)
+  ) {
+    return selectionRect;
   }
 
   return getFallbackAnchorRect(target);

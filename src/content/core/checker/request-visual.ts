@@ -29,7 +29,23 @@ export const applyVisualState = async (
   let highlightedItems: HighlightErrorItem[] = [];
   let autoAdvanceHandled = false;
 
-  if (ctx.isLatinInput) {
+  if (ctx.justApplied && ctx.errorWords.length === 0) {
+    setIndicatorVisualState("success");
+    setIndicatorErrorCount(0);
+    setShouldAutoAdvanceError(false);
+
+    window.setTimeout(() => {
+      const latestEditable = resolveActiveEditable() ?? activeElement;
+      if (!latestEditable) return;
+
+      const latestText = getElementText(latestEditable).trim();
+      if (latestText !== ctx.trimmed) return;
+
+      setActiveElement(latestEditable);
+      setIndicatorVisualState(ctx.isLatinInput ? "latin" : "idle");
+      setIndicatorErrorCount(0);
+    }, 1000);
+  } else if (ctx.isLatinInput) {
     setIndicatorVisualState("latin");
     setIndicatorErrorCount(0);
     setShouldAutoAdvanceError(false);
@@ -73,22 +89,6 @@ export const applyVisualState = async (
     setIndicatorVisualState(ctx.isLatinInput ? "latin" : "success");
     setIndicatorErrorCount(0);
     setShouldAutoAdvanceError(false);
-  } else if (ctx.justApplied) {
-    setIndicatorVisualState("success");
-    setIndicatorErrorCount(0);
-    setShouldAutoAdvanceError(false);
-
-    window.setTimeout(() => {
-      const latestEditable = resolveActiveEditable() ?? activeElement;
-      if (!latestEditable) return;
-
-      const latestText = getElementText(latestEditable).trim();
-      if (latestText !== ctx.trimmed) return;
-
-      setActiveElement(latestEditable);
-      setIndicatorVisualState("idle");
-      setIndicatorErrorCount(0);
-    }, 1000);
   } else {
     setIndicatorVisualState("idle");
     setIndicatorErrorCount(0);
