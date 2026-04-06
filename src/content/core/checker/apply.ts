@@ -35,6 +35,7 @@ import {
 } from "../state";
 import { APPLY_GUARD_MS, APPLY_RESET_MS } from "../../../lib/constants";
 import { checkText } from "./request";
+import { isGoogleDocsSite } from "../../dom";
 
 const hasLatinText = (text: string) => /[A-Za-z]/.test(text);
 
@@ -117,6 +118,11 @@ export const applySuggestion = () => {
       }
     } else if (isLatinInput) {
       ok = setElementText(resolved, suggestion);
+
+      if (!ok && isGoogleDocsSite()) {
+        ok = setElementText(document.body as HTMLElement, suggestion);
+      }
+
       nextText = suggestion;
     } else {
       ok = replaceCurrentSelectionInContentEditable(

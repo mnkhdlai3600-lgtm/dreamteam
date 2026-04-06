@@ -4,6 +4,7 @@ import {
   setSuppressInputUntil,
 } from "../../core/state";
 import { getMessengerEditorRoot, isMessengerSite } from "../editable";
+import { getGoogleDocsIframeDocument, isGoogleDocsSite } from "../google-docs";
 import { replaceAllEditableText, setNativeValue } from "./replace-core";
 
 const replaceMessengerText = (inputEl: HTMLElement, value: string) => {
@@ -24,6 +25,16 @@ const replaceMessengerText = (inputEl: HTMLElement, value: string) => {
   }
 };
 
+const replaceGoogleDocsText = (value: string) => {
+  const iframeDoc = getGoogleDocsIframeDocument();
+  const body = iframeDoc?.body;
+
+  if (!body) return false;
+
+  body.focus();
+  return replaceAllEditableText(body as unknown as HTMLElement, value);
+};
+
 export const setElementText = (el: HTMLElement, value: string) => {
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     el.focus();
@@ -40,6 +51,11 @@ export const setElementText = (el: HTMLElement, value: string) => {
     );
 
     return true;
+  }
+
+  if (isGoogleDocsSite()) {
+    const replacedDocs = replaceGoogleDocsText(value);
+    if (replacedDocs) return true;
   }
 
   if (el.isContentEditable || el.getAttribute("role") === "textbox") {

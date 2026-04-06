@@ -11,20 +11,21 @@ const MAX_WIDTH = 280;
 const getAnchorRect = (): DOMRect | null => {
   if (activeElement) {
     const caretRect = getCaretClientRect(activeElement);
-    if (caretRect && (caretRect.width || caretRect.height)) {
+    if (caretRect && (caretRect.width > 0 || caretRect.height > 0)) {
       return caretRect;
     }
   }
 
-  const indicator = document.getElementById("bolor-ai-indicator");
-  if (indicator) {
-    const rect = indicator.getBoundingClientRect();
-    if (rect.width || rect.height) return rect;
-  }
-
   if (activeElement) {
     const rect = activeElement.getBoundingClientRect();
-    if (rect.width || rect.height) return rect;
+    if (rect.width > 0 || rect.height > 0) {
+      return new DOMRect(
+        rect.left + 8,
+        rect.top + 8,
+        1,
+        Math.max(20, Math.min(28, rect.height - 16)),
+      );
+    }
   }
 
   return null;
@@ -51,9 +52,13 @@ export const repositionSuggestionDropdown = () => {
 
   const dropdownHeight = dropdown.offsetHeight || 120;
 
-  const preferredLeft = anchorRect.left + GAP_X;
+  const preferredLeft = anchorRect.right + GAP_X;
   const maxLeft = viewportWidth - width - VIEWPORT_GAP;
-  const left = clamp(preferredLeft, VIEWPORT_GAP, maxLeft);
+  let left = clamp(preferredLeft, VIEWPORT_GAP, maxLeft);
+
+  if (left + width > viewportWidth - VIEWPORT_GAP) {
+    left = clamp(anchorRect.left - width - GAP_X, VIEWPORT_GAP, maxLeft);
+  }
 
   const spaceBelow = viewportHeight - anchorRect.bottom - VIEWPORT_GAP;
   const spaceAbove = anchorRect.top - VIEWPORT_GAP;

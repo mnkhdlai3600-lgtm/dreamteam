@@ -31,7 +31,13 @@ export const syncSuggestionState = (
       setSuggestionPhase("idle");
     }
   }
-
+  console.log("[болор][синк]", {
+    isLatinInput: ctx.isLatinInput,
+    hasSuggestions: ctx.hasSuggestions,
+    hasSentenceCorrection: ctx.hasSentenceCorrection,
+    displaySuggestions: ctx.displaySuggestions,
+    autoAdvanceHandled,
+  });
   renderSuggestionIndicator();
   updateIndicatorPosition(currentEditable);
 };

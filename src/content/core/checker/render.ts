@@ -39,6 +39,15 @@ export const renderSuggestionIndicator = () => {
         : undefined,
   });
 
+  console.log("[болор][рендэр]", {
+    suggestionPhase,
+    latestSuggestions,
+    latestSuggestionCount: latestSuggestions.length,
+    hasSuggestionsValue: hasSuggestions(),
+    isSuggestionLoading,
+    indicatorVisualState,
+  });
+
   const shouldShowDropdown =
     suggestionPhase === "suggesting" &&
     hasSuggestions() &&

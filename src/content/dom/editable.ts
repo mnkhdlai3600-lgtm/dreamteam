@@ -148,6 +148,14 @@ export const normalizeText = (text: string) =>
     .replace(/\n\s+/g, "\n")
     .trim();
 
+export const normalizeLiveText = (text: string) =>
+  text
+    .replace(/\u00A0/g, " ")
+    .replace(/\u200B/g, "")
+    .replace(/\r/g, "")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n\s+/g, "\n");
+
 export const getElementText = (el: HTMLElement) => {
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     return el.value;
@@ -155,7 +163,7 @@ export const getElementText = (el: HTMLElement) => {
 
   if (isGoogleDocsSite()) {
     const docsText = getGoogleDocsText();
-    if (docsText) return normalizeText(docsText);
+    if (docsText) return normalizeLiveText(docsText);
   }
 
   if (isContentEditableLike(el) || el.getAttribute("role") === "textbox") {
