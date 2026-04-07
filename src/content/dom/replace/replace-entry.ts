@@ -4,7 +4,11 @@ import {
   setSuppressInputUntil,
 } from "../../core/state";
 import { getMessengerEditorRoot, isMessengerSite } from "../editable";
-import { getGoogleDocsIframeDocument, isGoogleDocsSite } from "../google-docs";
+import {
+  getGoogleDocsEventTarget,
+  getGoogleDocsIframeBody,
+  isGoogleDocsSite,
+} from "../google-docs";
 import { replaceAllEditableText, setNativeValue } from "./replace-core";
 
 const replaceMessengerText = (inputEl: HTMLElement, value: string) => {
@@ -25,14 +29,14 @@ const replaceMessengerText = (inputEl: HTMLElement, value: string) => {
   }
 };
 
-const replaceGoogleDocsText = (value: string) => {
-  const iframeDoc = getGoogleDocsIframeDocument();
-  const body = iframeDoc?.body;
+const replaceGoogleDocsText = (inputEl: HTMLElement, value: string) => {
+  const docsTarget =
+    getGoogleDocsEventTarget() ?? getGoogleDocsIframeBody() ?? inputEl;
 
-  if (!body) return false;
+  if (!docsTarget) return false;
 
-  body.focus();
-  return replaceAllEditableText(body as unknown as HTMLElement, value);
+  docsTarget.focus();
+  return replaceAllEditableText(docsTarget, value);
 };
 
 export const setElementText = (el: HTMLElement, value: string) => {
@@ -54,7 +58,7 @@ export const setElementText = (el: HTMLElement, value: string) => {
   }
 
   if (isGoogleDocsSite()) {
-    const replacedDocs = replaceGoogleDocsText(value);
+    const replacedDocs = replaceGoogleDocsText(el, value);
     if (replacedDocs) return true;
   }
 

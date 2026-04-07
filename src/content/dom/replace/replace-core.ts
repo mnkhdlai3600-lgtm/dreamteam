@@ -5,6 +5,38 @@ import {
   placeCursorAtEnd,
 } from "../selection";
 
+const getOwnerDocument = (root: HTMLElement) => root.ownerDocument || document;
+
+const getSelectionForRoot = (root: HTMLElement) => {
+  const ownerDocument = getOwnerDocument(root);
+  const view = ownerDocument.defaultView;
+  return view?.getSelection?.() ?? ownerDocument.getSelection?.() ?? null;
+};
+
+const execInsertText = (root: HTMLElement, value: string) => {
+  const ownerDocument = getOwnerDocument(root);
+
+  try {
+    const ok = ownerDocument.execCommand?.("insertText", false, value);
+
+    if (ok) {
+      dispatchSyntheticInput(root, "insertReplacementText", value);
+      return true;
+    }
+  } catch {}
+
+  try {
+    const ok = document.execCommand?.("insertText", false, value);
+
+    if (ok) {
+      dispatchSyntheticInput(root, "insertReplacementText", value);
+      return true;
+    }
+  } catch {}
+
+  return false;
+};
+
 export const setNativeValue = (
   element: HTMLInputElement | HTMLTextAreaElement,
   value: string,
@@ -31,26 +63,18 @@ export const replaceSelectedTextWithCommand = (
   value: string,
 ) => {
   root.focus();
-
-  try {
-    const ok = document.execCommand("insertText", false, value);
-
-    if (ok) {
-      dispatchSyntheticInput(root, "insertReplacementText", value);
-      return true;
-    }
-  } catch {}
-
-  return false;
+  return execInsertText(root, value);
 };
 
 export const replaceAllEditableText = (root: HTMLElement, value: string) => {
   root.focus();
 
-  const selection = window.getSelection();
+  const selection = getSelectionForRoot(root);
   if (!selection) return false;
 
-  const range = document.createRange();
+  const ownerDocument = getOwnerDocument(root);
+  const range = ownerDocument.createRange();
+
   range.selectNodeContents(root);
   selection.removeAllRanges();
   selection.addRange(range);
