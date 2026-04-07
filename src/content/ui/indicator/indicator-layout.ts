@@ -23,6 +23,8 @@ export const positionDotIndicator = (
   container: HTMLDivElement,
 ) => {
   applyPosition(target, container, false);
+  console.log("[болор][position-target]", target);
+  console.log("[болор][anchor-rect]", getTextEndAnchorRect(target));
 };
 
 export const positionSuggestionIndicator = (

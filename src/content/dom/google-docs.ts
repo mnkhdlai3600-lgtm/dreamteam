@@ -9,7 +9,6 @@ const DOCS_ROOT_SELECTORS = [
   DOCS_PAGE_SELECTOR,
   ".kix-appview-editor",
   ".kix-editor-container",
-  ".docs-texteventtarget-iframe",
   ".docs-texteventtarget-div",
   '[role="textbox"][aria-multiline="true"]',
   '[aria-label="Document"][role="textbox"]',
@@ -20,6 +19,21 @@ const DOCS_TEXT_SELECTORS = [
   ".kix-wordhtmlgenerator-word-node",
   ".kix-lineview-text-block",
   ".kix-lineview-content",
+].join(",");
+
+const DOCS_CURSOR_SELECTORS = [
+  ".kix-cursor",
+  ".kix-cursor-caret",
+  ".kix-cursor > div",
+  ".docs-text-ui-cursor-blink",
+  ".docs-text-ui-cursor",
+].join(",");
+
+const DOCS_EVENT_TARGET_SELECTORS = [
+  ".docs-texteventtarget-div",
+  '[contenteditable="true"][role="textbox"]',
+  '[aria-label="Document"][role="textbox"]',
+  '[aria-label="Документ"][role="textbox"]',
 ].join(",");
 
 let docsTextCache = "";
@@ -43,6 +57,19 @@ const normalizeDocsCacheText = (value: string) =>
     .replace(/\n[ \t]+/g, "\n")
     .replace(/[ \t]{2,}/g, " ");
 
+const isVisibleDocsRect = (rect: DOMRect | null) => {
+  return (
+    !!rect &&
+    Number.isFinite(rect.left) &&
+    Number.isFinite(rect.top) &&
+    rect.height > 0 &&
+    rect.left >= -20 &&
+    rect.top >= -20 &&
+    rect.left <= window.innerWidth + 20 &&
+    rect.top <= window.innerHeight + 20
+  );
+};
+
 export const isGoogleDocsSite = () => {
   const host = window.location.hostname;
   const path = window.location.pathname;
@@ -62,6 +89,29 @@ export const getGoogleDocsIframeDocument = (): Document | null => {
   } catch {
     return null;
   }
+};
+
+export const getGoogleDocsIframeBody = (): HTMLElement | null => {
+  const iframeDoc = getGoogleDocsIframeDocument();
+
+  try {
+    const body = iframeDoc?.body;
+    return body instanceof HTMLElement ? body : null;
+  } catch {
+    return null;
+  }
+};
+
+export const getGoogleDocsEventTarget = (): HTMLElement | null => {
+  const iframeBody = getGoogleDocsIframeBody();
+  if (iframeBody) return iframeBody;
+
+  const direct = document.querySelector<HTMLElement>(
+    DOCS_EVENT_TARGET_SELECTORS,
+  );
+  if (direct) return direct;
+
+  return null;
 };
 
 export const getGoogleDocsCanvas = (
@@ -89,6 +139,12 @@ export const getGoogleDocsPage = (
     if (page instanceof HTMLElement) return page;
   }
 
+  const eventTarget = getGoogleDocsEventTarget();
+  if (eventTarget) {
+    const page = eventTarget.closest(DOCS_PAGE_SELECTOR);
+    if (page instanceof HTMLElement) return page;
+  }
+
   const selected = document.querySelector<HTMLElement>(DOCS_PAGE_SELECTOR);
   if (selected) return selected;
 
@@ -99,10 +155,20 @@ export const getGoogleDocsPage = (
 export const getGoogleDocsEditorRoot = (
   target: EventTarget | null,
 ): HTMLElement | null => {
-  const page = getGoogleDocsPage(target);
-  if (page) return page;
+  const eventTarget = getGoogleDocsEventTarget();
+  if (eventTarget) return eventTarget;
+
+  if (target instanceof HTMLIFrameElement) {
+    const iframeBody = getGoogleDocsIframeBody();
+    if (iframeBody) return iframeBody;
+  }
 
   if (target instanceof Element) {
+    const closestEventTarget = target.closest(DOCS_EVENT_TARGET_SELECTORS);
+    if (closestEventTarget instanceof HTMLElement) {
+      return closestEventTarget;
+    }
+
     const root = target.closest(DOCS_ROOT_SELECTORS);
     if (root instanceof HTMLElement) return root;
   }
@@ -231,18 +297,71 @@ export const getGoogleDocsText = () => {
   return normalizeDocsCacheText(docsTextCache);
 };
 
-export const resolveGoogleDocsActiveEditable = () => {
+export const resolveGoogleDocsActiveEditable = (): HTMLElement | null => {
+  const eventTarget = getGoogleDocsEventTarget();
+  if (eventTarget) return eventTarget;
+
   const active = document.activeElement;
 
   if (active instanceof HTMLIFrameElement) {
-    return getGoogleDocsPage(active) ?? null;
+    const iframeBody = getGoogleDocsIframeBody();
+    if (iframeBody) return iframeBody;
   }
 
-  const pageFromActive = getGoogleDocsPage(active);
-  if (pageFromActive) return pageFromActive;
+  if (active instanceof HTMLElement) {
+    const closestEventTarget = active.closest(DOCS_EVENT_TARGET_SELECTORS);
+    if (closestEventTarget instanceof HTMLElement) {
+      return closestEventTarget;
+    }
 
-  return (
-    getGoogleDocsPage() ??
-    document.querySelector<HTMLElement>(DOCS_ROOT_SELECTORS)
+    const closestRoot = active.closest(DOCS_ROOT_SELECTORS);
+    if (closestRoot instanceof HTMLElement) return closestRoot;
+  }
+
+  return document.querySelector<HTMLElement>(DOCS_ROOT_SELECTORS);
+};
+
+export const getGoogleDocsCursorElement = (): HTMLElement | null => {
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>(DOCS_CURSOR_SELECTORS),
+  ).filter((el) => {
+    const rect = el.getBoundingClientRect();
+    const style = window.getComputedStyle(el);
+
+    return (
+      isVisibleDocsRect(rect) &&
+      style.display !== "none" &&
+      style.visibility !== "hidden" &&
+      style.opacity !== "0"
+    );
+  });
+
+  if (!candidates.length) return null;
+
+  candidates.sort((a, b) => {
+    const ar = a.getBoundingClientRect();
+    const br = b.getBoundingClientRect();
+
+    if (br.top !== ar.top) return br.top - ar.top;
+    return br.left - ar.left;
+  });
+
+  return candidates[0] ?? null;
+};
+
+export const getGoogleDocsCursorRect = (): DOMRect | null => {
+  const cursor = getGoogleDocsCursorElement();
+  if (!cursor) return null;
+
+  const rect = cursor.getBoundingClientRect();
+  if (!isVisibleDocsRect(rect)) {
+    return null;
+  }
+
+  return new DOMRect(
+    rect.right || rect.left,
+    rect.top,
+    1,
+    Math.max(1, rect.height),
   );
 };

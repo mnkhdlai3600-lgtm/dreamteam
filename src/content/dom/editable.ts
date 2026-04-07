@@ -81,6 +81,16 @@ export const getGmailEditorRoot = (
 export const getEditableElement = (
   target: EventTarget | null,
 ): HTMLElement | null => {
+  if (isGoogleDocsSite()) {
+    if (target instanceof HTMLIFrameElement) {
+      const docsEditable = resolveGoogleDocsActiveEditable();
+      if (docsEditable) return docsEditable;
+    }
+
+    const docsRoot = getGoogleDocsEditorRoot(target);
+    if (docsRoot) return docsRoot;
+  }
+
   if (!(target instanceof Element)) return null;
 
   if (isMessengerSite()) {
@@ -90,11 +100,6 @@ export const getEditableElement = (
 
   if (isGmailSite()) {
     const root = getGmailEditorRoot(target);
-    if (root) return root;
-  }
-
-  if (isGoogleDocsSite()) {
-    const root = getGoogleDocsEditorRoot(target);
     if (root) return root;
   }
 
@@ -119,6 +124,11 @@ export const getEditableElement = (
 };
 
 export const getEventEditableTarget = (event: Event) => {
+  if (isGoogleDocsSite()) {
+    const docsEditable = resolveGoogleDocsActiveEditable();
+    if (docsEditable) return docsEditable;
+  }
+
   if (typeof event.composedPath === "function") {
     for (const item of event.composedPath()) {
       const editable = getEditableElement(item);
@@ -129,11 +139,6 @@ export const getEventEditableTarget = (event: Event) => {
   if (isGmailSite()) {
     const fromSelection = getEditableElement(getSelectionElement());
     if (fromSelection) return fromSelection;
-  }
-
-  if (isGoogleDocsSite()) {
-    const docsEditable = resolveGoogleDocsActiveEditable();
-    if (docsEditable) return docsEditable;
   }
 
   return getEditableElement(event.target);
