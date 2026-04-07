@@ -1,4 +1,4 @@
-import { getSelectionClientRect } from "../../dom/caret";
+import { getCaretClientRect, getSelectionClientRect } from "../../dom/caret";
 import {
   getGoogleDocsCursorRect,
   getGoogleDocsPage,
@@ -98,24 +98,13 @@ export const getTextEndAnchorRect = (target: HTMLElement): DOMRect => {
     return getFallbackAnchorRect(target);
   }
 
-  const text =
-    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
-      ? target.value.trim()
-      : (target.textContent ?? "").trim();
-
-  if (!text) {
-    const selectionRect = getSelectionClientRect(target);
-
-    if (isValidRect(selectionRect)) {
-      return selectionRect;
-    }
-
-    return getFallbackAnchorRect(target);
+  const caretRect = getCaretClientRect(target);
+  if (isVisibleViewportRect(caretRect)) {
+    return caretRect;
   }
 
   const selectionRect = getSelectionClientRect(target);
-
-  if (isValidRect(selectionRect)) {
+  if (isVisibleViewportRect(selectionRect)) {
     return selectionRect;
   }
 
