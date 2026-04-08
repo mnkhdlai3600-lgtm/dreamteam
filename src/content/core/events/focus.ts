@@ -1,11 +1,11 @@
 import {
   getEditableElement,
   getEventEditableTarget,
-  isGoogleDocsSite,
   resolveActiveEditable,
 } from "../../dom";
 import {
   getGoogleDocsEventTarget,
+  isGoogleDocsSite,
   resolveGoogleDocsActiveEditable,
 } from "../../dom/google-docs";
 import {

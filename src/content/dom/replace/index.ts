@@ -3,11 +3,11 @@ export {
   replaceAllEditableText,
   replaceSelectedTextWithCommand,
   setNativeValue,
-} from "./replace-core";
-export { focusErrorRangeByOffsets, resolveReplaceRange } from "./replace-range";
+} from "./core";
+export { focusErrorRangeByOffsets, resolveReplaceRange } from "./range";
 export {
   replaceCurrentSelectionInContentEditable,
   replaceHighlightedErrorText,
   replaceRangeInContentEditable,
-} from "./replace-selection";
-export { setElementText } from "./replace-entry";
+} from "./selection";
+export { setElementText } from "./entry";

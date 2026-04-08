@@ -10,6 +10,7 @@ export let isApplyingHotkey = false;
 export let messengerReplaceInProgress = false;
 export let lastAppliedText: string | null = null;
 export let lastCheckedText = "";
+export let lastCheckWasLatin = false;
 export let suppressInputUntil = 0;
 export let requestCounter = 0;
 export let isComposing = false;
@@ -26,6 +27,7 @@ export const setActiveElement = (value: HTMLElement | null) => {
     lastEditableElement = value;
   }
 };
+
 export const setDebounceTimer = (timer: number | null) => {
   debounceTimer = timer;
 };
@@ -97,6 +99,10 @@ export const setLastAppliedText = (value: string | null) => {
 
 export const setLastCheckedText = (value: string) => {
   lastCheckedText = value;
+};
+
+export const setLastCheckWasLatin = (value: boolean) => {
+  lastCheckWasLatin = value;
 };
 
 export const setSuppressInputUntil = (value: number) => {

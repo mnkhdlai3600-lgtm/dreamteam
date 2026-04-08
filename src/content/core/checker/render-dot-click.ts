@@ -17,7 +17,7 @@ import {
 } from "../state";
 import { getHighlightedErrors } from "../error-state";
 import { removeSuggestionDropdown } from "../../ui";
-import { requestSuggestionsForWord } from "./request-word";
+import { requestSuggestionsForWord } from "./request/word";
 import { focusErrorForElement } from "./render-focus";
 
 type HandleDotClickParams = {

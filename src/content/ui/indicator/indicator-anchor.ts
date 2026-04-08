@@ -1,4 +1,7 @@
-import { getCaretClientRect, getSelectionClientRect } from "../../dom/caret";
+import {
+  getCaretClientRect,
+  getSelectionClientRect,
+} from "../../dom/caret/caret";
 import {
   getGoogleDocsCursorRect,
   getGoogleDocsPage,

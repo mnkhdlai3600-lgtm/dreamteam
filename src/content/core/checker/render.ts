@@ -20,22 +20,8 @@ import {
 import { applySuggestion } from "./apply";
 import { handleDotClick } from "./render-dot-click";
 
-console.log("RENDER FILE LOADED 777");
-
 export const renderSuggestionIndicator = () => {
   const target = activeElement ?? getLastEditableElement();
-
-  console.log("[болор][рендэр][target-check]", {
-    activeElement,
-    lastEditable: getLastEditableElement(),
-    target,
-    suggestionPhase,
-    latestSuggestions,
-    latestSuggestionCount: latestSuggestions.length,
-    hasSuggestionsValue: hasSuggestions(),
-    isSuggestionLoading,
-    indicatorVisualState,
-  });
 
   if (!target) {
     removeIndicator();
@@ -61,32 +47,14 @@ export const renderSuggestionIndicator = () => {
           ? () => void handleDotClick({ rerender: renderSuggestionIndicator })
           : undefined,
     });
-  } catch (error) {
-    console.log("[болор][рендэр][createIndicator-error]", error);
+  } catch {
     return;
   }
-
-  console.log("[болор][рендэр]", {
-    target,
-    suggestionPhase,
-    latestSuggestions,
-    latestSuggestionCount: latestSuggestions.length,
-    hasSuggestionsValue: hasSuggestions(),
-    isSuggestionLoading,
-    indicatorVisualState,
-  });
 
   const shouldShowDropdown =
     suggestionPhase === "suggesting" &&
     hasSuggestions() &&
     latestSuggestions.length > 0;
-
-  console.log("[болор][рендэр][dropdown-check]", {
-    shouldShowDropdown,
-    suggestionPhase,
-    hasSuggestionsValue: hasSuggestions(),
-    latestSuggestionsLength: latestSuggestions.length,
-  });
 
   if (!shouldShowDropdown) {
     removeSuggestionDropdown();
@@ -95,37 +63,14 @@ export const renderSuggestionIndicator = () => {
 
   removeSuggestionDropdown();
 
-  console.log("[болор][рендэр][dropdown] render start", {
-    latestSuggestions,
-  });
-
   void renderSuggestionDropdown((value: string) => {
-    console.log("[болор][рендэр][dropdown] onPick fired", {
-      value,
-      latestSuggestions,
-    });
-
     const index = latestSuggestions.findIndex((item) => item === value);
-
-    console.log("[болор][рендэр][dropdown] picked index", {
-      value,
-      index,
-    });
 
     if (index >= 0) {
       setSelectedSuggestionIndex(index);
     }
 
     setLatestSuggestion(value);
-
-    console.log("[болор][рендэр][dropdown] before applySuggestion", {
-      value,
-    });
-
     applySuggestion();
-
-    console.log("[болор][рендэр][dropdown] after applySuggestion", {
-      value,
-    });
   });
 };

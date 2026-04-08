@@ -1,12 +1,8 @@
-export * from "./caret";
+export * from "./caret/caret";
 export * from "./editable";
-export * from "./highlight";
-export * from "./highlight-target";
-export * from "./highlight-utils";
-export * from "./highlight-wrap";
+export * from "./highlights";
 export * from "./mode";
 export * from "./replace";
 export * from "./selection";
 export { replaceCurrentSelectionInContentEditable } from "./replace";
 export * from "./replace";
-export * from "./google-docs";
