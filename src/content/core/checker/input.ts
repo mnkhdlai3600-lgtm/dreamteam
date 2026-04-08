@@ -4,6 +4,7 @@ import {
   isGoogleDocsSite,
   resolveActiveEditable,
 } from "../../dom";
+import { setGoogleDocsTextCache } from "../../dom/google-docs";
 import { shouldSkipHandleInput } from "../guard";
 import {
   activeElement,
@@ -17,7 +18,6 @@ import {
   setDebounceTimer,
   setIndicatorVisualState,
   setIsSuggestionLoading,
-  setLastCheckedText,
   setSuggestionPhase,
 } from "../state";
 import { checkText } from "./request";
@@ -54,6 +54,25 @@ const readEditableTextAsync = async (editable: HTMLElement) => {
   return readEditableText(editable);
 };
 
+const updateDocsCacheIfNeeded = (text: string) => {
+  if (!isGoogleDocsSite()) return;
+  setGoogleDocsTextCache(text);
+};
+
+const shouldSkipSameTextCheck = (text: string) => {
+  if (!text) return true;
+
+  if (lastAppliedText && text === lastAppliedText.trim()) {
+    return true;
+  }
+
+  if (!isGoogleDocsSite() && text === lastCheckedText) {
+    return true;
+  }
+
+  return false;
+};
+
 const resetEmptyState = (editable: HTMLElement) => {
   clearPendingDebounce();
   cancelPendingRequests();
@@ -66,16 +85,9 @@ const resetEmptyState = (editable: HTMLElement) => {
 };
 
 export const handleInput = () => {
-  console.log("[болор][handleInput-start]");
-
-  if (shouldSkipHandleInput()) {
-    console.log("[болор][handleInput-skip]");
-    return;
-  }
+  if (shouldSkipHandleInput()) return;
 
   const currentEditable = resolveActiveEditable() ?? activeElement;
-  console.log("[болор][handleInput-editable]", currentEditable);
-
   if (!currentEditable) return;
 
   setActiveElement(currentEditable);
@@ -83,7 +95,7 @@ export const handleInput = () => {
 
   void (async () => {
     const text = await readEditableTextAsync(currentEditable);
-    console.log("[болор][handleInput-text]", text);
+    updateDocsCacheIfNeeded(text);
 
     if (!text) {
       resetEmptyState(currentEditable);
@@ -95,11 +107,7 @@ export const handleInput = () => {
     renderSuggestionIndicator();
     updateIndicatorPosition(currentEditable);
 
-    if (
-      (lastAppliedText && text === lastAppliedText.trim()) ||
-      text === lastCheckedText
-    ) {
-      console.log("[болор][handleInput-same-text]");
+    if (shouldSkipSameTextCheck(text)) {
       return;
     }
 
@@ -108,58 +116,55 @@ export const handleInput = () => {
     setDebounceTimer(
       window.setTimeout(() => {
         void (async () => {
-          console.log("[болор][debounce-fire]");
-
           if (shouldSkipHandleInput()) return;
 
           const latestEditable = resolveActiveEditable() ?? activeElement;
-          console.log("[болор][latest-editable]", latestEditable);
-
           if (!latestEditable) return;
 
           setActiveElement(latestEditable);
 
           const latestText = await readEditableTextAsync(latestEditable);
-          console.log("[болор][latest-text]", latestText);
+          updateDocsCacheIfNeeded(latestText);
 
           if (!latestText) {
             resetEmptyState(latestEditable);
             return;
           }
 
-          if (
-            (lastAppliedText && latestText === lastAppliedText.trim()) ||
-            latestText === lastCheckedText
-          ) {
-            console.log("[болор][latest-same-text]");
+          if (shouldSkipSameTextCheck(latestText)) {
             return;
           }
 
           setIndicatorVisualState(getVisualStateFromText(latestText));
           setIsSuggestionLoading(true);
           setSuggestionPhase("loading");
-          setLastCheckedText(latestText);
           renderSuggestionIndicator();
           updateIndicatorPosition(latestEditable);
 
-          console.log("[болор][before-checkText]", latestText);
-
           void checkText(latestText).finally(async () => {
             const liveEditable = resolveActiveEditable() ?? activeElement;
-            console.log("[болор][after-checkText-liveEditable]", liveEditable);
-
             if (!liveEditable) {
               removeIndicator();
               return;
             }
 
+            setActiveElement(liveEditable);
+
             const currentText = await readEditableTextAsync(liveEditable);
-            console.log("[болор][after-checkText-currentText]", currentText);
+            updateDocsCacheIfNeeded(currentText);
 
             if (!currentText) {
+              if (isGoogleDocsSite()) {
+                setIsSuggestionLoading(false);
+                renderSuggestionIndicator();
+                updateIndicatorPosition(liveEditable);
+                return;
+              }
+
               clearSuggestion();
               resetIndicatorVisualState();
               setSuggestionPhase("idle");
+              setIsSuggestionLoading(false);
               renderSuggestionIndicator();
               updateIndicatorPosition(liveEditable);
               return;

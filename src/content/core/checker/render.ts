@@ -18,6 +18,8 @@ import {
 import { applySuggestion } from "./apply";
 import { handleDotClick } from "./render-dot-click";
 
+console.log("RENDER FILE LOADED 777");
+
 export const renderSuggestionIndicator = () => {
   if (!activeElement) {
     removeIndicator();
@@ -53,6 +55,13 @@ export const renderSuggestionIndicator = () => {
     hasSuggestions() &&
     latestSuggestions.length > 0;
 
+  console.log("[болор][рендэр][dropdown-check]", {
+    shouldShowDropdown,
+    suggestionPhase,
+    hasSuggestionsValue: hasSuggestions(),
+    latestSuggestionsLength: latestSuggestions.length,
+  });
+
   if (!shouldShowDropdown) {
     removeSuggestionDropdown();
     return;
@@ -60,14 +69,37 @@ export const renderSuggestionIndicator = () => {
 
   removeSuggestionDropdown();
 
+  console.log("[болор][рендэр][dropdown] render start", {
+    latestSuggestions,
+  });
+
   void renderSuggestionDropdown((value: string) => {
+    console.log("[болор][рендэр][dropdown] onPick fired", {
+      value,
+      latestSuggestions,
+    });
+
     const index = latestSuggestions.findIndex((item) => item === value);
+
+    console.log("[болор][рендэр][dropdown] picked index", {
+      value,
+      index,
+    });
 
     if (index >= 0) {
       setSelectedSuggestionIndex(index);
     }
 
     setLatestSuggestion(value);
+
+    console.log("[болор][рендэр][dropdown] before applySuggestion", {
+      value,
+    });
+
     applySuggestion();
+
+    console.log("[болор][рендэр][dropdown] after applySuggestion", {
+      value,
+    });
   });
 };

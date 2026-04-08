@@ -15,6 +15,9 @@ const MAX_WIDTH = 280;
 
 let lastDocsAnchorRect: DOMRect | null = null;
 
+const cloneRect = (rect: DOMRect) =>
+  new DOMRect(rect.left, rect.top, rect.width, rect.height);
+
 const isValidRect = (rect: DOMRect | null): rect is DOMRect => {
   return (
     !!rect &&
@@ -40,38 +43,35 @@ const isVisibleViewportRect = (rect: DOMRect | null): rect is DOMRect => {
   );
 };
 
+const rememberDocsRect = (rect: DOMRect | null): DOMRect | null => {
+  if (!isVisibleViewportRect(rect)) return null;
+  lastDocsAnchorRect = cloneRect(rect);
+  return cloneRect(rect);
+};
+
+const getDocsPageFallbackRect = (): DOMRect | null => {
+  const page = getGoogleDocsPage();
+  if (!page) return null;
+
+  const pageRect = page.getBoundingClientRect();
+  if (!isVisibleViewportRect(pageRect)) return null;
+
+  const fallback = new DOMRect(pageRect.left + 80, pageRect.top + 80, 1, 20);
+
+  return rememberDocsRect(fallback);
+};
+
 const getDocsAnchorRect = (): DOMRect | null => {
   const cursorRect = getGoogleDocsCursorRect();
-
   if (isVisibleViewportRect(cursorRect)) {
-    lastDocsAnchorRect = cursorRect;
-    return cursorRect;
-  }
-
-  const page = getGoogleDocsPage();
-  if (page) {
-    const pageRect = page.getBoundingClientRect();
-
-    if (isVisibleViewportRect(pageRect)) {
-      const fallback = new DOMRect(
-        pageRect.left + 40,
-        pageRect.top + 40,
-        1,
-        20,
-      );
-
-      if (isVisibleViewportRect(fallback)) {
-        lastDocsAnchorRect = fallback;
-        return fallback;
-      }
-    }
+    return rememberDocsRect(cursorRect);
   }
 
   if (isVisibleViewportRect(lastDocsAnchorRect)) {
-    return lastDocsAnchorRect;
+    return cloneRect(lastDocsAnchorRect);
   }
 
-  return null;
+  return getDocsPageFallbackRect();
 };
 
 const getDefaultAnchorRect = (): DOMRect | null => {
@@ -128,19 +128,13 @@ export const repositionSuggestionDropdown = () => {
   const dropdownHeight = dropdown.offsetHeight || 120;
 
   const preferRight =
-    !isGoogleDocsSite() ||
+    !isGoogleDocsSite() &&
     anchorRect.right + width + VIEWPORT_GAP <= viewportWidth;
 
-  const preferredLeft = preferRight
-    ? anchorRect.right + GAP_X
-    : anchorRect.left;
+  let left = preferRight ? anchorRect.right + GAP_X : anchorRect.left;
 
   const maxLeft = viewportWidth - width - VIEWPORT_GAP;
-  let left = clamp(preferredLeft, VIEWPORT_GAP, maxLeft);
-
-  if (preferRight && left + width > viewportWidth - VIEWPORT_GAP) {
-    left = clamp(anchorRect.left - width - GAP_X, VIEWPORT_GAP, maxLeft);
-  }
+  left = clamp(left, VIEWPORT_GAP, maxLeft);
 
   const spaceBelow = viewportHeight - anchorRect.bottom - VIEWPORT_GAP;
   const spaceAbove = anchorRect.top - VIEWPORT_GAP;
@@ -154,8 +148,8 @@ export const repositionSuggestionDropdown = () => {
   const maxTop = viewportHeight - dropdownHeight - VIEWPORT_GAP;
   top = clamp(top, VIEWPORT_GAP, Math.max(VIEWPORT_GAP, maxTop));
 
-  dropdown.style.left = `${left}px`;
-  dropdown.style.top = `${top}px`;
+  dropdown.style.left = `${Math.round(left)}px`;
+  dropdown.style.top = `${Math.round(top)}px`;
 };
 
 export const hasDropdownAnchor = () => {

@@ -5,24 +5,82 @@ import {
   resolveActiveEditable,
 } from "../../dom";
 import {
+  getGoogleDocsEventTarget,
+  resolveGoogleDocsActiveEditable,
+} from "../../dom/google-docs";
+import {
   createIndicator,
   removeIndicator,
 } from "../../ui/indicator/indicator-render";
 import {
   clearSuggestion,
+  getLastEditableElement,
   indicatorErrorCount,
   indicatorVisualState,
   setActiveElement,
   suppressInputUntil,
 } from "../state";
 
+const isBolorUiElement = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) return false;
+
+  return !!target.closest(
+    "[data-bolor-dropdown], #bolor-ai-suggestion-dropdown, #bolor-ai-indicator",
+  );
+};
+
+const isDocsTitleElement = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) return false;
+
+  return !!target.closest(
+    [
+      '[aria-label="Document name"]',
+      '[aria-label="Документын нэр"]',
+      '[aria-label="Rename document"]',
+      ".docs-title-input",
+      "#docs-title-input",
+      ".docs-title-widget",
+    ].join(","),
+  );
+};
+
+const resolveDocsEditable = () => {
+  return getGoogleDocsEventTarget() ?? resolveGoogleDocsActiveEditable();
+};
+
+const restoreLastEditableFocus = () => {
+  const lastEditable = getLastEditableElement();
+  if (!lastEditable) return;
+
+  window.setTimeout(() => {
+    try {
+      lastEditable.focus();
+    } catch {}
+  }, 0);
+};
+
 export const registerFocusEvents = () => {
   document.addEventListener(
     "focusin",
     (event) => {
+      if (isBolorUiElement(event.target)) {
+        restoreLastEditableFocus();
+        return;
+      }
+
+      if (isGoogleDocsSite() && isDocsTitleElement(event.target)) {
+        const docsEditable = resolveDocsEditable() ?? getLastEditableElement();
+        if (!docsEditable) return;
+
+        setActiveElement(docsEditable);
+        restoreLastEditableFocus();
+        return;
+      }
+
       const target =
         getEventEditableTarget(event) ??
-        (isGoogleDocsSite() ? resolveActiveEditable() : null);
+        (isGoogleDocsSite() ? resolveDocsEditable() : null) ??
+        resolveActiveEditable();
 
       if (!target) return;
 
@@ -46,10 +104,35 @@ export const registerFocusEvents = () => {
 
   document.addEventListener(
     "focusout",
-    () => {
+    (event) => {
+      if (isBolorUiElement(event.target)) {
+        restoreLastEditableFocus();
+        return;
+      }
+
       window.setTimeout(() => {
         const isNavigationFocus = Date.now() < suppressInputUntil;
         if (isNavigationFocus) return;
+
+        if (isGoogleDocsSite()) {
+          const docsEditable = resolveDocsEditable();
+          if (docsEditable) {
+            setActiveElement(docsEditable);
+            return;
+          }
+
+          if (isDocsTitleElement(document.activeElement)) {
+            restoreLastEditableFocus();
+            return;
+          }
+
+          const lastEditable = getLastEditableElement();
+          if (lastEditable) {
+            setActiveElement(lastEditable);
+            restoreLastEditableFocus();
+            return;
+          }
+        }
 
         const editable =
           getEditableElement(document.activeElement) ??

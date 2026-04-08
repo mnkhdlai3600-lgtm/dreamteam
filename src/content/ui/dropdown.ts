@@ -20,7 +20,18 @@ import {
   getSurfaceStylesByTheme,
 } from "./indicator/indicator-theme";
 
+console.log("DROPDOWN FILE LOADED 777");
+
 let dropdownRenderToken = 0;
+let isPickingSuggestion = false;
+
+const stopEvent = (event: Event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if ("stopImmediatePropagation" in event) {
+    event.stopImmediatePropagation();
+  }
+};
 
 export const refreshSuggestionDropdownHighlight = async () => {
   const dropdown = getDropdownElement();
@@ -48,6 +59,7 @@ export const refreshSuggestionDropdownHighlight = async () => {
 };
 
 export const removeSuggestionDropdown = () => {
+  console.log("[болор][dropdown] removeSuggestionDropdown");
   getAllDropdownElements().forEach((element) => element.remove());
   setIsSuggestionMenuOpen(false);
 };
@@ -87,11 +99,13 @@ const createSuggestionItem = async (
   const theme = await getResolvedTheme();
   const styles = getSurfaceStylesByTheme(theme);
 
-  const item = document.createElement("button");
-  item.type = "button";
+  const item = document.createElement("div");
+  item.setAttribute("role", "button");
+  item.setAttribute("tabindex", "-1");
+  item.dataset.suggestionItem = "true";
+  item.dataset.suggestionValue = suggestion;
   item.textContent = suggestion;
   item.title = suggestion;
-  item.dataset.suggestionItem = "true";
 
   item.style.width = "100%";
   item.style.display = "block";
@@ -109,23 +123,78 @@ const createSuggestionItem = async (
   item.style.whiteSpace = "nowrap";
   item.style.overflow = "hidden";
   item.style.textOverflow = "ellipsis";
+  item.style.userSelect = "none";
+  item.style.webkitUserSelect = "none";
+  item.style.pointerEvents = "auto";
 
   item.addEventListener("mouseenter", () => {
+    console.log("[болор][dropdown-item] mouseenter", {
+      suggestion,
+      index,
+    });
     setSelectedSuggestionIndex(index);
     void refreshSuggestionDropdownHighlight();
   });
 
-  item.addEventListener("mousedown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-  });
+  item.addEventListener(
+    "pointerdown",
+    (event) => {
+      console.log("[болор][dropdown-item] pointerdown", {
+        suggestion,
+        index,
+      });
+      event.stopPropagation();
+    },
+    true,
+  );
 
-  item.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setSelectedSuggestionIndex(index);
-    onPick(suggestion);
-  });
+  item.addEventListener(
+    "mousedown",
+    (event) => {
+      console.log("[болор][dropdown-item] mousedown", {
+        suggestion,
+        index,
+      });
+      event.stopPropagation();
+    },
+    true,
+  );
+
+  item.addEventListener(
+    "click",
+    (event) => {
+      console.log("[болор][dropdown-item] click", {
+        suggestion,
+        index,
+      });
+
+      stopEvent(event);
+
+      if (isPickingSuggestion) return;
+      isPickingSuggestion = true;
+
+      try {
+        setSelectedSuggestionIndex(index);
+
+        console.log("[болор][dropdown-item] before onPick", {
+          suggestion,
+          index,
+        });
+
+        onPick(suggestion);
+
+        console.log("[болор][dropdown-item] after onPick", {
+          suggestion,
+          index,
+        });
+      } finally {
+        window.setTimeout(() => {
+          isPickingSuggestion = false;
+        }, 0);
+      }
+    },
+    true,
+  );
 
   return item;
 };
@@ -143,20 +212,81 @@ const createFooter = async () => {
   return footer;
 };
 
+const refreshDropdownPositionStable = (renderToken: number) => {
+  if (renderToken !== dropdownRenderToken) return;
+
+  repositionSuggestionDropdown();
+
+  requestAnimationFrame(() => {
+    if (renderToken !== dropdownRenderToken) return;
+    repositionSuggestionDropdown();
+
+    window.setTimeout(() => {
+      if (renderToken !== dropdownRenderToken) return;
+      repositionSuggestionDropdown();
+    }, 30);
+  });
+};
+
 export const renderSuggestionDropdown = async (
   onPick: (value: string) => void,
 ) => {
   const renderToken = ++dropdownRenderToken;
 
+  console.log("[болор][dropdown] render start", {
+    renderToken,
+    isSuggestionLoading,
+    latestSuggestions,
+    hasAnchor: hasDropdownAnchor(),
+  });
+
   ensureDropdownStyles();
   removeSuggestionDropdown();
 
-  if (!hasDropdownAnchor()) return;
-  if (!isSuggestionLoading && !latestSuggestions.length) return;
+  if (!hasDropdownAnchor()) {
+    console.log("[болор][dropdown] no anchor");
+    return;
+  }
+
+  if (!isSuggestionLoading && !latestSuggestions.length) {
+    console.log("[болор][dropdown] no suggestions and not loading");
+    return;
+  }
 
   const dropdown = await createDropdownElement();
+
+  console.log("[болор][dropdown] element created", {
+    renderToken,
+    dropdown,
+  });
+
   if (renderToken !== dropdownRenderToken) return;
-  if (!hasDropdownAnchor()) return;
+  if (!hasDropdownAnchor()) {
+    console.log("[болор][dropdown] anchor lost after create");
+    return;
+  }
+
+  dropdown.tabIndex = -1;
+  dropdown.setAttribute("data-bolor-dropdown", "true");
+  dropdown.style.pointerEvents = "auto";
+
+  dropdown.addEventListener(
+    "pointerdown",
+    (event) => {
+      console.log("[болор][dropdown] container pointerdown");
+      event.stopPropagation();
+    },
+    true,
+  );
+
+  dropdown.addEventListener(
+    "mousedown",
+    (event) => {
+      console.log("[болор][dropdown] container mousedown");
+      event.stopPropagation();
+    },
+    true,
+  );
 
   if (isSuggestionLoading) {
     dropdown.appendChild(await createLoadingRow());
@@ -178,6 +308,12 @@ export const renderSuggestionDropdown = async (
   removeSuggestionDropdown();
   document.body.appendChild(dropdown);
   setIsSuggestionMenuOpen(true);
-  repositionSuggestionDropdown();
+
+  console.log("[болор][dropdown] appended", {
+    renderToken,
+    childCount: dropdown.childElementCount,
+  });
+
+  refreshDropdownPositionStable(renderToken);
   void refreshSuggestionDropdownHighlight();
 };

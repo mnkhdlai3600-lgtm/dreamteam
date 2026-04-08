@@ -19,10 +19,13 @@ export let isSuggestionLoading = false;
 export type SuggestionPhase = "idle" | "typing" | "loading" | "suggesting";
 export let suggestionPhase: SuggestionPhase = "idle";
 
-export const setActiveElement = (element: HTMLElement | null) => {
-  activeElement = element;
-};
+export const setActiveElement = (value: HTMLElement | null) => {
+  activeElement = value;
 
+  if (value) {
+    lastEditableElement = value;
+  }
+};
 export const setDebounceTimer = (timer: number | null) => {
   debounceTimer = timer;
 };
@@ -197,4 +200,12 @@ export const clearFocusedErrorId = () => {
 
 export const setShouldAutoAdvanceError = (value: boolean) => {
   shouldAutoAdvanceError = value;
+};
+
+let lastEditableElement: HTMLElement | null = null;
+
+export const getLastEditableElement = () => lastEditableElement;
+
+export const setLastEditableElement = (value: HTMLElement | null) => {
+  lastEditableElement = value;
 };

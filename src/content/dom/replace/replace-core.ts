@@ -4,6 +4,13 @@ import {
   dispatchSyntheticInput,
   placeCursorAtEnd,
 } from "../selection";
+import {
+  getGoogleDocsEventTarget,
+  getGoogleDocsIframeBody,
+  isGoogleDocsSite,
+  setGoogleDocsTextCache,
+  syncGoogleDocsTextCache,
+} from "../google-docs";
 
 const getOwnerDocument = (root: HTMLElement) => root.ownerDocument || document;
 
@@ -18,7 +25,6 @@ const execInsertText = (root: HTMLElement, value: string) => {
 
   try {
     const ok = ownerDocument.execCommand?.("insertText", false, value);
-
     if (ok) {
       dispatchSyntheticInput(root, "insertReplacementText", value);
       return true;
@@ -27,7 +33,6 @@ const execInsertText = (root: HTMLElement, value: string) => {
 
   try {
     const ok = document.execCommand?.("insertText", false, value);
-
     if (ok) {
       dispatchSyntheticInput(root, "insertReplacementText", value);
       return true;
@@ -35,6 +40,92 @@ const execInsertText = (root: HTMLElement, value: string) => {
   } catch {}
 
   return false;
+};
+
+const execSelectAllForGoogleDocs = (root: HTMLElement) => {
+  const selection = getSelectionForRoot(root);
+  if (!selection) return false;
+
+  try {
+    root.focus();
+
+    const ownerDocument = getOwnerDocument(root);
+    const range = ownerDocument.createRange();
+    range.selectNodeContents(root);
+
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const execSelectAllForDefaultEditable = (root: HTMLElement) => {
+  const ownerDocument = getOwnerDocument(root);
+
+  try {
+    const ok = ownerDocument.execCommand?.("selectAll", false);
+    if (ok) return true;
+  } catch {}
+
+  try {
+    const ok = document.execCommand?.("selectAll", false);
+    if (ok) return true;
+  } catch {}
+
+  const selection = getSelectionForRoot(root);
+  if (!selection) return false;
+
+  try {
+    const range = ownerDocument.createRange();
+    range.selectNodeContents(root);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const getGoogleDocsReplaceTarget = (root: HTMLElement) => {
+  return getGoogleDocsIframeBody() ?? getGoogleDocsEventTarget() ?? root;
+};
+
+const replaceAllGoogleDocsText = (root: HTMLElement, value: string) => {
+  const docsTarget = getGoogleDocsReplaceTarget(root);
+  docsTarget.focus();
+
+  const selected = execSelectAllForGoogleDocs(docsTarget);
+  if (!selected) return false;
+
+  const inserted = execInsertText(docsTarget, value);
+  if (!inserted) return false;
+  console.log("[болор][docs-replace]", {
+    root,
+    docsTarget,
+    value,
+  });
+
+  console.log("[болор][docs-replace-result]", {
+    selected,
+    inserted,
+    afterText:
+      docsTarget instanceof HTMLElement
+        ? docsTarget.innerText || docsTarget.textContent || ""
+        : "",
+  });
+  setGoogleDocsTextCache(value);
+
+  window.setTimeout(() => {
+    syncGoogleDocsTextCache(docsTarget);
+  }, 30);
+
+  window.setTimeout(() => {
+    syncGoogleDocsTextCache(docsTarget);
+  }, 120);
+
+  return true;
 };
 
 export const setNativeValue = (
@@ -67,17 +158,14 @@ export const replaceSelectedTextWithCommand = (
 };
 
 export const replaceAllEditableText = (root: HTMLElement, value: string) => {
+  if (isGoogleDocsSite()) {
+    return replaceAllGoogleDocsText(root, value);
+  }
+
   root.focus();
 
-  const selection = getSelectionForRoot(root);
-  if (!selection) return false;
-
-  const ownerDocument = getOwnerDocument(root);
-  const range = ownerDocument.createRange();
-
-  range.selectNodeContents(root);
-  selection.removeAllRanges();
-  selection.addRange(range);
+  const selected = execSelectAllForDefaultEditable(root);
+  if (!selected) return false;
 
   if (replaceSelectedTextWithCommand(root, value)) {
     placeCursorAtEnd(root);

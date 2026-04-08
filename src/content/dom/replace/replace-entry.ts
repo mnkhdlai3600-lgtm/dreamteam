@@ -4,11 +4,7 @@ import {
   setSuppressInputUntil,
 } from "../../core/state";
 import { getMessengerEditorRoot, isMessengerSite } from "../editable";
-import {
-  getGoogleDocsEventTarget,
-  getGoogleDocsIframeBody,
-  isGoogleDocsSite,
-} from "../google-docs";
+import { isGoogleDocsSite, replaceGoogleDocsText } from "../google-docs";
 import { replaceAllEditableText, setNativeValue } from "./replace-core";
 
 const replaceMessengerText = (inputEl: HTMLElement, value: string) => {
@@ -29,18 +25,18 @@ const replaceMessengerText = (inputEl: HTMLElement, value: string) => {
   }
 };
 
-const replaceGoogleDocsText = (inputEl: HTMLElement, value: string) => {
-  const docsTarget =
-    getGoogleDocsEventTarget() ?? getGoogleDocsIframeBody() ?? inputEl;
-
-  if (!docsTarget) return false;
-
-  docsTarget.focus();
-  return replaceAllEditableText(docsTarget, value);
-};
-
 export const setElementText = (el: HTMLElement, value: string) => {
+  console.log("[болор][setElementText] enter", {
+    el,
+    tag: el?.tagName,
+    role: el?.getAttribute?.("role"),
+    isDocs: isGoogleDocsSite(),
+    isContentEditable: el?.isContentEditable,
+    value,
+  });
+
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    console.log("[болор][setElementText] input-textarea");
     el.focus();
     setNativeValue(el, value);
     el.setSelectionRange?.(value.length, value.length);
@@ -58,17 +54,21 @@ export const setElementText = (el: HTMLElement, value: string) => {
   }
 
   if (isGoogleDocsSite()) {
-    const replacedDocs = replaceGoogleDocsText(el, value);
-    if (replacedDocs) return true;
+    console.log("[болор][setElementText] docs-branch");
+    return replaceGoogleDocsText(value);
   }
 
   if (el.isContentEditable || el.getAttribute("role") === "textbox") {
+    console.log("[болор][setElementText] contenteditable-branch");
+
     if (isMessengerSite()) {
+      console.log("[болор][setElementText] messenger-branch");
       return replaceMessengerText(el, value);
     }
 
     return replaceAllEditableText(el, value);
   }
 
+  console.log("[болор][setElementText] no-branch");
   return false;
 };

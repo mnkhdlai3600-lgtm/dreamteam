@@ -6,6 +6,7 @@ import {
   lastAppliedText,
   resetIndicatorVisualState,
   setActiveElement,
+  setLastCheckedText,
   setShouldAutoAdvanceError,
 } from "../state";
 import { renderSuggestionIndicator } from "./render";
@@ -15,6 +16,10 @@ import {
   isGoogleDocsSite,
   resolveActiveEditable,
 } from "../../dom";
+import {
+  getGoogleDocsTextCache,
+  setGoogleDocsTextCache,
+} from "../../dom/google-docs";
 import { clearHighlightedErrors } from "../error-state";
 import { buildCheckContext } from "./request-context";
 import { applyVisualState } from "./request-visual";
@@ -44,6 +49,10 @@ export const checkText = async (text: string) => {
     return;
   }
 
+  if (isGoogleDocsSite()) {
+    setGoogleDocsTextCache(trimmed);
+  }
+
   if (justApplied) {
     clearSuggestion();
     if (activeElement) clearHighlights(activeElement);
@@ -61,7 +70,10 @@ export const checkText = async (text: string) => {
 
     setActiveElement(currentEditable);
 
-    const currentText = getElementText(currentEditable).trim();
+    const currentText = isGoogleDocsSite()
+      ? getGoogleDocsTextCache()
+      : getElementText(currentEditable).trim();
+
     if (!currentText) return;
 
     const sameText = isGoogleDocsSite()
@@ -76,17 +88,10 @@ export const checkText = async (text: string) => {
       justApplied,
     );
 
-    console.log("[bolor][ctx]", {
-      isLatinInput: ctx.isLatinInput,
-      corrected: ctx.corrected,
-      displaySuggestions: ctx.displaySuggestions,
-      hasSuggestions: ctx.hasSuggestions,
-      hasSentenceCorrection: ctx.hasSentenceCorrection,
-    });
-
     const { autoAdvanceHandled } = await applyVisualState(currentEditable, ctx);
 
     syncSuggestionState(currentEditable, ctx, autoAdvanceHandled);
+    setLastCheckedText(trimmed);
   } catch {
     clearSuggestion();
     clearHighlightedErrors();
