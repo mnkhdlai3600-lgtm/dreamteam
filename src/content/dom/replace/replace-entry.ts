@@ -25,7 +25,7 @@ const replaceMessengerText = (inputEl: HTMLElement, value: string) => {
   }
 };
 
-export const setElementText = (el: HTMLElement, value: string) => {
+export const setElementText = async (el: HTMLElement, value: string) => {
   console.log("[болор][setElementText] enter", {
     el,
     tag: el?.tagName,
@@ -55,7 +55,7 @@ export const setElementText = (el: HTMLElement, value: string) => {
 
   if (isGoogleDocsSite()) {
     console.log("[болор][setElementText] docs-branch");
-    return replaceGoogleDocsText(value);
+    return await replaceGoogleDocsText(value);
   }
 
   if (el.isContentEditable || el.getAttribute("role") === "textbox") {

@@ -56,6 +56,9 @@ const normalizeDocsCacheText = (value: string) =>
     .replace(/\n[ \t]+/g, "\n")
     .replace(/[ \t]{2,}/g, " ");
 
+const normalizeDocsComparableText = (value: string) =>
+  normalizeDocsCacheText(value).replace(/\s+/g, " ").trim();
+
 const isNodeElement = (value: unknown): value is Element => {
   return !!value && typeof value === "object" && (value as Node).nodeType === 1;
 };
@@ -456,11 +459,6 @@ const selectAllDocsContent = (target: HTMLElement) => {
   focusDocsTarget(target);
 
   try {
-    const ok = ownerDocument.execCommand?.("selectAll", false);
-    if (ok) return true;
-  } catch {}
-
-  try {
     const range = ownerDocument.createRange();
     range.selectNodeContents(target);
     selection.removeAllRanges();
@@ -469,6 +467,22 @@ const selectAllDocsContent = (target: HTMLElement) => {
   } catch {
     return false;
   }
+};
+
+const getDocsCommandTargets = (preferred: HTMLElement) => {
+  const candidates = [
+    preferred,
+    getGoogleDocsEventTarget(),
+    getGoogleDocsIframeBody(),
+  ].filter(Boolean) as HTMLElement[];
+
+  const unique: HTMLElement[] = [];
+
+  for (const item of candidates) {
+    if (!unique.includes(item)) unique.push(item);
+  }
+
+  return unique;
 };
 
 const dispatchDocsInputEvent = (target: HTMLElement, value: string) => {
@@ -481,22 +495,28 @@ const dispatchDocsInputEvent = (target: HTMLElement, value: string) => {
         data: value,
       }),
     );
-  } catch {
-    try {
-      target.dispatchEvent(
-        new Event("input", { bubbles: true, composed: true }),
-      );
-    } catch {}
-  }
+    return;
+  } catch {}
+
+  try {
+    target.dispatchEvent(
+      new Event("input", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  } catch {}
 };
 
-const insertDocsText = (target: HTMLElement, value: string) => {
-  const ownerDocument = getDocsOwnerDocument(target);
+const tryExecInsertTextOnHost = (commandTarget: HTMLElement, value: string) => {
+  const ownerDocument = getDocsOwnerDocument(commandTarget);
+
+  focusDocsTarget(commandTarget);
 
   try {
     const ok = ownerDocument.execCommand?.("insertText", false, value);
     if (ok) {
-      dispatchDocsInputEvent(target, value);
+      dispatchDocsInputEvent(commandTarget, value);
       return true;
     }
   } catch {}
@@ -504,7 +524,7 @@ const insertDocsText = (target: HTMLElement, value: string) => {
   try {
     const ok = document.execCommand?.("insertText", false, value);
     if (ok) {
-      dispatchDocsInputEvent(target, value);
+      dispatchDocsInputEvent(commandTarget, value);
       return true;
     }
   } catch {}
@@ -512,56 +532,188 @@ const insertDocsText = (target: HTMLElement, value: string) => {
   return false;
 };
 
-export const replaceGoogleDocsText = (value: string) => {
+const writeTextToClipboard = async (value: string) => {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const clearDocsSelectionWithDelete = (commandTarget: HTMLElement) => {
+  const ownerDocument = getDocsOwnerDocument(commandTarget);
+
+  focusDocsTarget(commandTarget);
+
+  try {
+    const ok = ownerDocument.execCommand?.("delete", false);
+    if (ok) return true;
+  } catch {}
+
+  try {
+    const ok = document.execCommand?.("delete", false);
+    if (ok) return true;
+  } catch {}
+
+  return false;
+};
+
+const tryExecPasteOnHost = async (commandTarget: HTMLElement) => {
+  const ownerDocument = getDocsOwnerDocument(commandTarget);
+
+  focusDocsTarget(commandTarget);
+
+  try {
+    const ok = ownerDocument.execCommand?.("paste", false);
+    if (ok) return true;
+  } catch {}
+
+  try {
+    const ok = document.execCommand?.("paste", false);
+    if (ok) return true;
+  } catch {}
+
+  return false;
+};
+
+const verifyDocsReplaceResult = (
+  compareTarget: HTMLElement,
+  expected: string,
+) => {
+  const synced = syncGoogleDocsTextCache(compareTarget);
+  const current = normalizeDocsComparableText(synced);
+  const wanted = normalizeDocsComparableText(expected);
+
+  console.log("[болор][docs-replace] verify", {
+    compareTarget,
+    current,
+    wanted,
+    ok: current === wanted,
+  });
+
+  return current === wanted;
+};
+
+export const replaceGoogleDocsText = async (value: string) => {
   const normalized = normalizeDocsCacheText(value);
-  const target =
-    getGoogleDocsIframeBody() ??
+
+  const visualTarget =
+    resolveGoogleDocsActiveEditable() ??
     getGoogleDocsEventTarget() ??
-    resolveGoogleDocsActiveEditable();
+    getGoogleDocsIframeBody();
 
   console.log("[болор][docs-replace] target-check", {
-    target,
+    target: visualTarget,
     normalized,
     activeElement: document.activeElement,
   });
 
-  if (!target) {
+  if (!visualTarget) {
     console.log("[болор][docs-replace] no-editable-target");
     return false;
   }
 
-  focusDocsTarget(target);
-
-  const selected = selectAllDocsContent(target);
+  const selected = selectAllDocsContent(visualTarget);
   if (!selected) {
-    console.log("[болор][docs-replace] select-all-failed", { target });
+    console.log("[болор][docs-replace] select-all-failed", {
+      target: visualTarget,
+    });
     return false;
   }
 
-  const inserted = insertDocsText(target, normalized);
-  if (!inserted) {
-    console.log("[болор][docs-replace] insert-failed", { target, normalized });
+  const commandTargets = getDocsCommandTargets(visualTarget);
+
+  for (const commandTarget of commandTargets) {
+    console.log("[болор][docs-replace] try-insert", {
+      visualTarget,
+      commandTarget,
+      commandTag: commandTarget.tagName,
+      commandRole: commandTarget.getAttribute?.("role"),
+    });
+
+    const inserted = tryExecInsertTextOnHost(commandTarget, normalized);
+    if (!inserted) {
+      console.log("[болор][docs-replace] insert-failed", {
+        target: commandTarget,
+        normalized,
+      });
+      continue;
+    }
+
+    if (verifyDocsReplaceResult(visualTarget, normalized)) {
+      setGoogleDocsTextCache(normalized);
+
+      window.setTimeout(() => syncGoogleDocsTextCache(visualTarget), 30);
+      window.setTimeout(() => syncGoogleDocsTextCache(visualTarget), 120);
+      window.setTimeout(() => syncGoogleDocsTextCache(visualTarget), 250);
+
+      console.log("[болор][docs-replace] success-by-insert", {
+        visualTarget,
+        commandTarget,
+        normalized,
+      });
+
+      return true;
+    }
+
+    console.log("[болор][docs-replace] inserted-but-not-verified", {
+      visualTarget,
+      commandTarget,
+      normalized,
+    });
+  }
+
+  console.log(
+    "[болор][docs-replace] insert-path-failed, trying-paste-fallback",
+  );
+
+  const clipboardOk = await writeTextToClipboard(normalized);
+  if (!clipboardOk) {
+    console.log("[болор][docs-replace] clipboard-write-failed");
     return false;
   }
 
-  setGoogleDocsTextCache(normalized);
+  const reselected = selectAllDocsContent(visualTarget);
+  if (!reselected) {
+    console.log("[болор][docs-replace] reselect-failed-before-paste");
+    return false;
+  }
 
-  window.setTimeout(() => {
-    syncGoogleDocsTextCache(target);
-  }, 30);
+  for (const commandTarget of commandTargets) {
+    const deleted = clearDocsSelectionWithDelete(commandTarget);
 
-  window.setTimeout(() => {
-    syncGoogleDocsTextCache(target);
-  }, 120);
+    console.log("[болор][docs-replace] delete-before-paste", {
+      commandTarget,
+      deleted,
+    });
 
-  window.setTimeout(() => {
-    syncGoogleDocsTextCache(target);
-  }, 250);
+    const pasted = await tryExecPasteOnHost(commandTarget);
 
-  console.log("[болор][docs-replace] success", {
-    target,
-    normalized,
-  });
+    console.log("[болор][docs-replace] try-paste", {
+      commandTarget,
+      pasted,
+    });
 
-  return true;
+    if (!pasted) continue;
+
+    if (verifyDocsReplaceResult(visualTarget, normalized)) {
+      setGoogleDocsTextCache(normalized);
+
+      window.setTimeout(() => syncGoogleDocsTextCache(visualTarget), 30);
+      window.setTimeout(() => syncGoogleDocsTextCache(visualTarget), 120);
+      window.setTimeout(() => syncGoogleDocsTextCache(visualTarget), 250);
+
+      console.log("[болор][docs-replace] success-by-paste", {
+        visualTarget,
+        commandTarget,
+        normalized,
+      });
+
+      return true;
+    }
+  }
+
+  console.log("[болор][docs-replace] all-paths-failed");
+  return false;
 };
