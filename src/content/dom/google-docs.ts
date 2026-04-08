@@ -427,9 +427,97 @@ export const getGoogleDocsCursorRect = (): DOMRect | null => {
   );
 };
 
+const getDocsOwnerDocument = (target: HTMLElement) => {
+  return target.ownerDocument ?? document;
+};
+
+const getDocsSelection = (target: HTMLElement) => {
+  const ownerDocument = getDocsOwnerDocument(target);
+  const view = ownerDocument.defaultView;
+  return view?.getSelection?.() ?? ownerDocument.getSelection?.() ?? null;
+};
+
+const focusDocsTarget = (target: HTMLElement) => {
+  try {
+    target.focus({ preventScroll: true });
+    return;
+  } catch {}
+
+  try {
+    target.focus();
+  } catch {}
+};
+
+const selectAllDocsContent = (target: HTMLElement) => {
+  const ownerDocument = getDocsOwnerDocument(target);
+  const selection = getDocsSelection(target);
+  if (!selection) return false;
+
+  focusDocsTarget(target);
+
+  try {
+    const ok = ownerDocument.execCommand?.("selectAll", false);
+    if (ok) return true;
+  } catch {}
+
+  try {
+    const range = ownerDocument.createRange();
+    range.selectNodeContents(target);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const dispatchDocsInputEvent = (target: HTMLElement, value: string) => {
+  try {
+    target.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        composed: true,
+        inputType: "insertReplacementText",
+        data: value,
+      }),
+    );
+  } catch {
+    try {
+      target.dispatchEvent(
+        new Event("input", { bubbles: true, composed: true }),
+      );
+    } catch {}
+  }
+};
+
+const insertDocsText = (target: HTMLElement, value: string) => {
+  const ownerDocument = getDocsOwnerDocument(target);
+
+  try {
+    const ok = ownerDocument.execCommand?.("insertText", false, value);
+    if (ok) {
+      dispatchDocsInputEvent(target, value);
+      return true;
+    }
+  } catch {}
+
+  try {
+    const ok = document.execCommand?.("insertText", false, value);
+    if (ok) {
+      dispatchDocsInputEvent(target, value);
+      return true;
+    }
+  } catch {}
+
+  return false;
+};
+
 export const replaceGoogleDocsText = (value: string) => {
   const normalized = normalizeDocsCacheText(value);
-  const target = resolveGoogleDocsActiveEditable();
+  const target =
+    getGoogleDocsIframeBody() ??
+    getGoogleDocsEventTarget() ??
+    resolveGoogleDocsActiveEditable();
 
   console.log("[болор][docs-replace] target-check", {
     target,
@@ -442,6 +530,38 @@ export const replaceGoogleDocsText = (value: string) => {
     return false;
   }
 
+  focusDocsTarget(target);
+
+  const selected = selectAllDocsContent(target);
+  if (!selected) {
+    console.log("[болор][docs-replace] select-all-failed", { target });
+    return false;
+  }
+
+  const inserted = insertDocsText(target, normalized);
+  if (!inserted) {
+    console.log("[болор][docs-replace] insert-failed", { target, normalized });
+    return false;
+  }
+
   setGoogleDocsTextCache(normalized);
-  return false;
+
+  window.setTimeout(() => {
+    syncGoogleDocsTextCache(target);
+  }, 30);
+
+  window.setTimeout(() => {
+    syncGoogleDocsTextCache(target);
+  }, 120);
+
+  window.setTimeout(() => {
+    syncGoogleDocsTextCache(target);
+  }, 250);
+
+  console.log("[болор][docs-replace] success", {
+    target,
+    normalized,
+  });
+
+  return true;
 };
