@@ -1,10 +1,12 @@
 import {
   activeElement,
+  getLastEditableElement,
   hasSuggestions,
   indicatorErrorCount,
   indicatorVisualState,
   isSuggestionLoading,
   latestSuggestions,
+  setActiveElement,
   setLatestSuggestion,
   setSelectedSuggestionIndex,
   suggestionPhase,
@@ -21,10 +23,28 @@ import { handleDotClick } from "./render-dot-click";
 console.log("RENDER FILE LOADED 777");
 
 export const renderSuggestionIndicator = () => {
-  if (!activeElement) {
+  const target = activeElement ?? getLastEditableElement();
+
+  console.log("[болор][рендэр][target-check]", {
+    activeElement,
+    lastEditable: getLastEditableElement(),
+    target,
+    suggestionPhase,
+    latestSuggestions,
+    latestSuggestionCount: latestSuggestions.length,
+    hasSuggestionsValue: hasSuggestions(),
+    isSuggestionLoading,
+    indicatorVisualState,
+  });
+
+  if (!target) {
     removeIndicator();
     removeSuggestionDropdown();
     return;
+  }
+
+  if (target !== activeElement) {
+    setActiveElement(target);
   }
 
   const visualState =
@@ -32,16 +52,22 @@ export const renderSuggestionIndicator = () => {
       ? "loading"
       : indicatorVisualState;
 
-  void createIndicator(activeElement, "", {
-    state: visualState,
-    errorCount: indicatorErrorCount,
-    onDotClick:
-      visualState === "error"
-        ? () => void handleDotClick({ rerender: renderSuggestionIndicator })
-        : undefined,
-  });
+  try {
+    void createIndicator(target, "", {
+      state: visualState,
+      errorCount: indicatorErrorCount,
+      onDotClick:
+        visualState === "error"
+          ? () => void handleDotClick({ rerender: renderSuggestionIndicator })
+          : undefined,
+    });
+  } catch (error) {
+    console.log("[болор][рендэр][createIndicator-error]", error);
+    return;
+  }
 
   console.log("[болор][рендэр]", {
+    target,
     suggestionPhase,
     latestSuggestions,
     latestSuggestionCount: latestSuggestions.length,

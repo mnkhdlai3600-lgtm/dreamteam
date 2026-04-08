@@ -1,7 +1,9 @@
 import { getEventEditableTarget, isGoogleDocsSite } from "../../dom";
 import {
+  getGoogleDocsIframeBody,
   getGoogleDocsIframeDocument,
   resetGoogleDocsTextCache,
+  resolveGoogleDocsActiveEditable,
   syncGoogleDocsTextCache,
   updateGoogleDocsTextCacheFromKeyboardEvent,
 } from "../../dom/google-docs";
@@ -9,25 +11,81 @@ import { updateIndicatorPosition } from "../../ui";
 import { renderSuggestionIndicator } from "../checker/render";
 import { shouldSkipHandleInput } from "../guard";
 import {
+  clearSuggestion,
+  getLastEditableElement,
   hasSuggestions,
   isSuggestionLoading,
   setActiveElement,
   setSuggestionPhase,
-  clearSuggestion,
 } from "../state";
 import { handleInput } from "../checker/input";
 
-let boundDocsDocument: Document | null = null;
 let docsBindTimer: number | null = null;
+const boundDocs = new WeakSet<Document>();
 
-const runInputFlow = (event: Event) => {
+const IGNORED_KEYS = new Set([
+  "Shift",
+  "Control",
+  "Alt",
+  "Meta",
+  "CapsLock",
+  "Escape",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+]);
+
+const isDocsKeyboardEventAllowed = (event: KeyboardEvent) => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return false;
+  if (IGNORED_KEYS.has(event.key)) return false;
+  return true;
+};
+
+const resolveInputTarget = (event: Event) => {
+  const direct = getEventEditableTarget(event);
+  if (direct) return direct;
+
+  if (isGoogleDocsSite()) {
+    const docsActive = resolveGoogleDocsActiveEditable();
+    if (docsActive) return docsActive;
+
+    const iframeBody = getGoogleDocsIframeBody();
+    if (iframeBody) return iframeBody;
+
+    const lastEditable = getLastEditableElement();
+    if (lastEditable) return lastEditable;
+  }
+
+  return null;
+};
+
+const runInputFlow = (event: Event, source: string) => {
+  console.log("[болор][input-event]", {
+    source,
+    type: event.type,
+    target: event.target,
+    docs: isGoogleDocsSite(),
+  });
+
   if (isGoogleDocsSite()) {
     syncGoogleDocsTextCache(event.target);
   }
 
-  if (shouldSkipHandleInput()) return;
+  if (shouldSkipHandleInput()) {
+    console.log("[болор][input-event] skipped");
+    return;
+  }
 
-  const target = getEventEditableTarget(event);
+  const target = resolveInputTarget(event);
+
+  console.log("[болор][input-event] resolved-target", {
+    target,
+    docsActive: isGoogleDocsSite() ? resolveGoogleDocsActiveEditable() : null,
+    iframeBody: isGoogleDocsSite() ? getGoogleDocsIframeBody() : null,
+    lastEditable: getLastEditableElement(),
+  });
+
   if (!target) return;
 
   setActiveElement(target);
@@ -46,22 +104,36 @@ const runInputFlow = (event: Event) => {
   handleInput();
 };
 
-const bindInputListener = (doc: Document) => {
+const bindInputListener = (doc: Document, source: string) => {
+  if (boundDocs.has(doc)) return;
+  boundDocs.add(doc);
+
+  console.log("[болор][input-bind] bound", {
+    source,
+    isDocs: isGoogleDocsSite(),
+    doc,
+  });
+
   doc.addEventListener(
     "input",
     (event) => {
-      runInputFlow(event);
+      runInputFlow(event, `${source}:input`);
     },
     true,
   );
 
   doc.addEventListener(
     "focusin",
-    () => {
-      if (isGoogleDocsSite()) {
-        resetGoogleDocsTextCache();
-        syncGoogleDocsTextCache(doc.body);
-      }
+    (event) => {
+      if (!isGoogleDocsSite()) return;
+
+      console.log("[болор][input-focusin]", {
+        source,
+        target: event.target,
+      });
+
+      resetGoogleDocsTextCache();
+      syncGoogleDocsTextCache(event.target);
     },
     true,
   );
@@ -70,7 +142,13 @@ const bindInputListener = (doc: Document) => {
     "keydown",
     (event) => {
       if (!isGoogleDocsSite()) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (!isDocsKeyboardEventAllowed(event)) return;
+
+      console.log("[болор][input-keydown]", {
+        source,
+        key: event.key,
+        target: event.target,
+      });
 
       updateGoogleDocsTextCacheFromKeyboardEvent(event);
     },
@@ -82,25 +160,16 @@ const bindInputListener = (doc: Document) => {
     (event) => {
       if (!isGoogleDocsSite()) return;
       if (shouldSkipHandleInput()) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (!isDocsKeyboardEventAllowed(event)) return;
 
-      const ignored = [
-        "Shift",
-        "Control",
-        "Alt",
-        "Meta",
-        "CapsLock",
-        "Escape",
-        "ArrowUp",
-        "ArrowDown",
-        "ArrowLeft",
-        "ArrowRight",
-      ];
-
-      if (ignored.includes(event.key)) return;
+      console.log("[болор][input-keyup]", {
+        source,
+        key: event.key,
+        target: event.target,
+      });
 
       window.setTimeout(() => {
-        runInputFlow(event);
+        runInputFlow(event, `${source}:keyup`);
       }, 0);
     },
     true,
@@ -111,15 +180,18 @@ const ensureDocsIframeListeners = () => {
   if (!isGoogleDocsSite()) return;
 
   const iframeDoc = getGoogleDocsIframeDocument();
-  if (!iframeDoc) return;
-  if (iframeDoc === boundDocsDocument) return;
 
-  bindInputListener(iframeDoc);
-  boundDocsDocument = iframeDoc;
+  console.log("[болор][input-ensure-iframe]", {
+    hasIframeDoc: !!iframeDoc,
+    iframeDoc,
+  });
+
+  if (!iframeDoc) return;
+  bindInputListener(iframeDoc, "docs-iframe");
 };
 
 export const registerInputEvents = () => {
-  bindInputListener(document);
+  bindInputListener(document, "main-document");
 
   if (!isGoogleDocsSite()) return;
 

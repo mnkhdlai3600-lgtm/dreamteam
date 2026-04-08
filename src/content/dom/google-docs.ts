@@ -10,7 +10,6 @@ const DOCS_ROOT_SELECTORS = [
   '[role="textbox"][aria-multiline="true"]',
   '[aria-label="Document"][role="textbox"]',
   '[aria-label="Документ"][role="textbox"]',
-  ".kix-appview-editor",
   ".kix-editor-container",
   DOCS_PAGE_SELECTOR,
 ].join(",");
@@ -56,6 +55,27 @@ const normalizeDocsCacheText = (value: string) =>
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
     .replace(/[ \t]{2,}/g, " ");
+
+const isNodeElement = (value: unknown): value is Element => {
+  return !!value && typeof value === "object" && (value as Node).nodeType === 1;
+};
+
+const isHtmlElementLike = (value: unknown): value is HTMLElement => {
+  return (
+    isNodeElement(value) &&
+    typeof (value as HTMLElement).matches === "function" &&
+    typeof (value as HTMLElement).closest === "function"
+  );
+};
+
+const asHtmlElement = (value: unknown): HTMLElement | null => {
+  return isHtmlElementLike(value) ? (value as HTMLElement) : null;
+};
+
+const queryHtmlElement = (root: ParentNode | null, selector: string) => {
+  if (!root || typeof root.querySelector !== "function") return null;
+  return asHtmlElement(root.querySelector(selector));
+};
 
 const isVisibleDocsRect = (rect: DOMRect | null) => {
   return (
@@ -115,8 +135,45 @@ const isPlainTypingKey = (key: string) => {
   return !/[\u0000-\u001F]/.test(key);
 };
 
+const getTargetFromDoc = (doc: Document | null) => {
+  if (!doc) return null;
+
+  try {
+    const direct = queryHtmlElement(doc, DOCS_EVENT_TARGET_SELECTORS);
+    if (direct) return direct;
+
+    const active = asHtmlElement(doc.activeElement);
+    if (active) {
+      const closest = asHtmlElement(
+        active.closest(DOCS_EVENT_TARGET_SELECTORS),
+      );
+      if (closest) return closest;
+      if (isEditableDocsTarget(active)) return active;
+    }
+  } catch {}
+
+  return null;
+};
+
+const isElementInsideDocsIframe = (target: EventTarget | null) => {
+  const el = asHtmlElement(target);
+  if (!el) return false;
+
+  const iframeDoc = getGoogleDocsIframeDocument();
+  if (!iframeDoc) return false;
+
+  return el.ownerDocument === iframeDoc;
+};
+
 const getDirectGoogleDocsEventTarget = (): HTMLElement | null => {
-  return document.querySelector<HTMLElement>(DOCS_EVENT_TARGET_SELECTORS);
+  const iframeDoc = getGoogleDocsIframeDocument();
+  const iframeTarget = getTargetFromDoc(iframeDoc);
+  if (iframeTarget) return iframeTarget;
+
+  const mainTarget = getTargetFromDoc(document);
+  if (mainTarget) return mainTarget;
+
+  return null;
 };
 
 const getActiveDocsPage = (target?: EventTarget | null) => {
@@ -134,7 +191,8 @@ export const isGoogleDocsSite = () => {
 };
 
 export const getGoogleDocsIframe = (): HTMLIFrameElement | null => {
-  return document.querySelector<HTMLIFrameElement>(DOCS_IFRAME_SELECTOR);
+  const iframe = document.querySelector(DOCS_IFRAME_SELECTOR);
+  return iframe instanceof HTMLIFrameElement ? iframe : null;
 };
 
 export const getGoogleDocsIframeDocument = (): Document | null => {
@@ -152,8 +210,7 @@ export const getGoogleDocsIframeBody = (): HTMLElement | null => {
   const iframeDoc = getGoogleDocsIframeDocument();
 
   try {
-    const body = iframeDoc?.body;
-    return body instanceof HTMLElement ? body : null;
+    return asHtmlElement(iframeDoc?.body);
   } catch {
     return null;
   }
@@ -164,7 +221,7 @@ export const getGoogleDocsEventTarget = (): HTMLElement | null => {
   if (isEditableDocsTarget(direct)) return direct;
 
   const iframeBody = getGoogleDocsIframeBody();
-  if (isEditableDocsTarget(iframeBody)) return iframeBody;
+  if (iframeBody) return iframeBody;
 
   return null;
 };
@@ -172,14 +229,14 @@ export const getGoogleDocsEventTarget = (): HTMLElement | null => {
 export const getGoogleDocsCanvas = (
   target?: EventTarget | null,
 ): HTMLCanvasElement | null => {
-  if (target instanceof Element) {
-    const localCanvas = target
-      .closest(DOCS_PAGE_SELECTOR)
-      ?.querySelector(DOCS_CANVAS_SELECTOR);
+  const targetEl = asHtmlElement(target);
 
+  if (targetEl) {
+    const page = asHtmlElement(targetEl.closest(DOCS_PAGE_SELECTOR));
+    const localCanvas = page?.querySelector(DOCS_CANVAS_SELECTOR);
     if (localCanvas instanceof HTMLCanvasElement) return localCanvas;
 
-    const closestCanvas = target.closest(DOCS_CANVAS_SELECTOR);
+    const closestCanvas = targetEl.closest(DOCS_CANVAS_SELECTOR);
     if (closestCanvas instanceof HTMLCanvasElement) return closestCanvas;
   }
 
@@ -189,16 +246,18 @@ export const getGoogleDocsCanvas = (
 export const getGoogleDocsPage = (
   target?: EventTarget | null,
 ): HTMLElement | null => {
-  if (target instanceof Element) {
-    const page = target.closest(DOCS_PAGE_SELECTOR);
-    if (page instanceof HTMLElement) return page;
+  const targetEl = asHtmlElement(target);
+
+  if (targetEl) {
+    const page = asHtmlElement(targetEl.closest(DOCS_PAGE_SELECTOR));
+    if (page) return page;
   }
 
-  const selected = document.querySelector<HTMLElement>(DOCS_PAGE_SELECTOR);
+  const selected = queryHtmlElement(document, DOCS_PAGE_SELECTOR);
   if (selected) return selected;
 
   const canvas = getGoogleDocsCanvas(target);
-  return canvas?.closest(DOCS_PAGE_SELECTOR) as HTMLElement | null;
+  return asHtmlElement(canvas?.closest(DOCS_PAGE_SELECTOR) ?? null);
 };
 
 export const getGoogleDocsEditorRoot = (
@@ -209,23 +268,28 @@ export const getGoogleDocsEditorRoot = (
 
   if (target instanceof HTMLIFrameElement) {
     const iframeBody = getGoogleDocsIframeBody();
-    if (isEditableDocsTarget(iframeBody)) return iframeBody;
+    if (iframeBody) return iframeBody;
   }
 
-  if (target instanceof Element) {
-    const closestEventTarget = target.closest(DOCS_EVENT_TARGET_SELECTORS);
-    if (
-      closestEventTarget instanceof HTMLElement &&
-      isEditableDocsTarget(closestEventTarget)
-    ) {
+  const targetEl = asHtmlElement(target);
+
+  if (targetEl) {
+    const closestEventTarget = asHtmlElement(
+      targetEl.closest(DOCS_EVENT_TARGET_SELECTORS),
+    );
+    if (closestEventTarget) {
       return closestEventTarget;
     }
 
-    const root = target.closest(DOCS_ROOT_SELECTORS);
-    if (root instanceof HTMLElement) return root;
+    if (isElementInsideDocsIframe(targetEl)) {
+      return getGoogleDocsIframeBody();
+    }
+
+    const root = asHtmlElement(targetEl.closest(DOCS_ROOT_SELECTORS));
+    if (root) return root;
   }
 
-  return document.querySelector<HTMLElement>(DOCS_ROOT_SELECTORS);
+  return queryHtmlElement(document, DOCS_ROOT_SELECTORS);
 };
 
 export const resetGoogleDocsTextCache = () => {
@@ -295,16 +359,27 @@ export const getGoogleDocsText = () => {
 };
 
 export const resolveGoogleDocsActiveEditable = (): HTMLElement | null => {
-  const direct = getGoogleDocsEventTarget();
+  const direct = getDirectGoogleDocsEventTarget();
   if (direct) return direct;
 
-  const active = document.activeElement;
-  if (active instanceof HTMLElement && isEditableDocsTarget(active)) {
-    return active;
+  const iframeDoc = getGoogleDocsIframeDocument();
+  const iframeActive = asHtmlElement(iframeDoc?.activeElement);
+  if (iframeActive) {
+    const closest = asHtmlElement(
+      iframeActive.closest(DOCS_EVENT_TARGET_SELECTORS),
+    );
+    if (closest) return closest;
+    return getGoogleDocsIframeBody();
+  }
+
+  const active = asHtmlElement(document.activeElement);
+  if (active) {
+    const closest = asHtmlElement(active.closest(DOCS_EVENT_TARGET_SELECTORS));
+    if (closest) return closest;
   }
 
   const iframeBody = getGoogleDocsIframeBody();
-  if (isEditableDocsTarget(iframeBody)) return iframeBody;
+  if (iframeBody) return iframeBody;
 
   return null;
 };
@@ -366,17 +441,6 @@ export const replaceGoogleDocsText = (value: string) => {
     console.log("[болор][docs-replace] no-editable-target");
     return false;
   }
-
-  if (!isEditableDocsTarget(target)) {
-    console.log("[болор][docs-replace] invalid-target", {
-      target,
-    });
-    return false;
-  }
-
-  try {
-    target.focus();
-  } catch {}
 
   setGoogleDocsTextCache(normalized);
   return false;
