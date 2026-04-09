@@ -1,3 +1,5 @@
+// src/content/core/checker/request/context.ts
+
 import { shouldAutoAdvanceError } from "../../state";
 import { parseErrorWords } from "./errors";
 import { buildDisplaySuggestions, uniqueSuggestions } from "./utils";
@@ -46,11 +48,17 @@ export const buildCheckContext = (
   const rawErrorWords = parseErrorWords(data.errorWords, trimmed);
   const { latinCount, cyrillicCount } = getScriptStats(trimmed);
 
+  const mode =
+    typeof (data as { mode?: unknown }).mode === "string"
+      ? ((data as { mode?: string }).mode ?? "")
+      : "";
+
+  const isOpenAIGalig = mode === "openai-galig";
   const mostlyLatin = isMostlyLatinText(trimmed);
   const pureLatin = latinCount > 0 && cyrillicCount === 0;
 
   const shouldTreatAsLatin =
-    pureLatin || (mostlyLatin && rawErrorWords.length === 0);
+    isOpenAIGalig || pureLatin || (mostlyLatin && rawErrorWords.length === 0);
 
   const errorWords = shouldTreatAsLatin ? [] : rawErrorWords;
 

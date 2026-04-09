@@ -22,6 +22,17 @@ export const ensureDropdownStyles = () => {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+
+    @keyframes bolor-ai-dropdown-in {
+      0% {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
   `;
   document.head.appendChild(style);
 };
@@ -36,22 +47,23 @@ export const createDropdownElement = async () => {
   const dropdown = document.createElement("div");
   dropdown.id = DROPDOWN_ID;
   dropdown.dataset.theme = theme;
+  dropdown.setAttribute("role", "listbox");
 
   dropdown.style.position = "fixed";
   dropdown.style.left = "0";
   dropdown.style.top = "0";
-  dropdown.style.width = "190px";
-  dropdown.style.maxWidth = "190px";
-  dropdown.style.maxHeight = "180px";
+  dropdown.style.width = "260px";
+  dropdown.style.maxWidth = "260px";
+  dropdown.style.maxHeight = "260px";
   dropdown.style.overflowY = "auto";
   dropdown.style.overflowX = "hidden";
-  dropdown.style.padding = "4px";
-  dropdown.style.borderRadius = "12px";
-  dropdown.style.border = `1px solid ${styles.panelBorder}`;
+  dropdown.style.padding = "8px";
+  dropdown.style.borderRadius = "18px";
+  dropdown.style.border = styles.panelBorder;
   dropdown.style.background = styles.panelBackground;
   dropdown.style.color = styles.panelText;
-  dropdown.style.boxShadow = "0 10px 26px rgba(0, 0, 0, 0.18)";
-  dropdown.style.backdropFilter = "blur(6px)";
+  dropdown.style.boxShadow = styles.shadowStrong;
+  dropdown.style.backdropFilter = "blur(12px)";
   dropdown.style.zIndex = "2147483647";
   dropdown.style.pointerEvents = "auto";
   dropdown.style.userSelect = "none";
@@ -59,6 +71,10 @@ export const createDropdownElement = async () => {
   dropdown.style.visibility = "visible";
   dropdown.style.opacity = "1";
   dropdown.style.boxSizing = "border-box";
+  dropdown.style.fontFamily = "Inter, Arial, sans-serif";
+  dropdown.style.transformOrigin = "top left";
+  dropdown.style.animation =
+    "bolor-ai-dropdown-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both";
 
   return dropdown;
 };

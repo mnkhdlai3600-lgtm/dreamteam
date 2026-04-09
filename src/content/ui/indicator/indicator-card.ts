@@ -1,9 +1,6 @@
-import {
-  getSurfaceStylesByTheme,
-  type getResolvedTheme,
-} from "./indicator-theme";
+import { getSurfaceStylesByTheme } from "./indicator-theme";
 
-type ResolvedTheme = Awaited<ReturnType<typeof getResolvedTheme>>;
+type ResolvedTheme = "light" | "dark";
 
 export const buildSuggestionIndicator = (
   container: HTMLDivElement,
@@ -23,20 +20,21 @@ export const buildSuggestionIndicator = (
   container.style.color = styles.panelText;
   container.style.pointerEvents = "auto";
   container.style.border = styles.panelBorder;
-  container.style.borderRadius = "14px";
+  container.style.borderRadius = "18px";
   container.style.overflow = "hidden";
-  container.style.lineHeight = "1.3";
-  container.style.maxWidth = "320px";
-  container.style.minWidth = "220px";
+  container.style.lineHeight = "1.35";
+  container.style.maxWidth = "340px";
+  container.style.minWidth = "240px";
   container.style.width = "auto";
   container.style.height = "auto";
-  container.style.boxShadow = styles.shadow;
-  container.style.backdropFilter = "blur(8px)";
+  container.style.boxShadow = styles.shadowStrong;
+  container.style.backdropFilter = "blur(12px)";
 
   const list = document.createElement("div");
   list.style.display = "flex";
   list.style.flexDirection = "column";
-  list.style.padding = "6px";
+  list.style.gap = "4px";
+  list.style.padding = "8px";
 
   suggestions.forEach((suggestion, index) => {
     list.appendChild(
@@ -54,16 +52,17 @@ export const buildSuggestionIndicator = (
 
   if (suggestions.length > 0 && onFixAll) {
     const actions = document.createElement("div");
-    actions.style.padding = "0 6px 6px";
+    actions.style.padding = "0 8px 8px";
     actions.appendChild(createFixAllButton(styles, onFixAll));
     container.appendChild(actions);
   }
 
   const hint = document.createElement("div");
   hint.textContent = "↑ ↓ сонгох • Enter эсвэл click";
-  hint.style.padding = "6px 12px 10px";
+  hint.style.padding = "10px 14px 12px";
   hint.style.fontSize = "11px";
   hint.style.color = styles.subtleText;
+  hint.style.borderTop = `1px solid ${styles.itemBorderActive}`;
 
   container.appendChild(hint);
 };
@@ -90,31 +89,39 @@ const createSuggestionButton = (
   onSuggestionClick?: (index: number) => void,
 ) => {
   const button = document.createElement("button");
+  const isActive = index === selectedIndex;
 
   button.type = "button";
   button.textContent = suggestion;
+  button.title = suggestion;
   button.setAttribute("data-suggestion-item", "true");
-  button.style.border = "none";
+  button.style.border = `1px solid ${
+    isActive ? styles.itemBorderActive : "transparent"
+  }`;
   button.style.outline = "none";
-  button.style.background =
-    index === selectedIndex ? styles.itemSelected : "transparent";
+  button.style.background = isActive ? styles.itemSelected : "transparent";
   button.style.color = styles.panelText;
   button.style.textAlign = "left";
-  button.style.padding = "10px 12px";
-  button.style.borderRadius = "10px";
+  button.style.padding = "12px 13px";
+  button.style.borderRadius = "12px";
   button.style.cursor = "pointer";
   button.style.fontSize = "13px";
+  button.style.fontWeight = "600";
+  button.style.lineHeight = "1.4";
   button.style.width = "100%";
-  button.style.transition = "background 0.15s ease";
+  button.style.whiteSpace = "normal";
+  button.style.wordBreak = "break-word";
+  button.style.transition =
+    "background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease";
+  button.style.transform = isActive ? "translateY(-1px)" : "translateY(0)";
+  button.style.boxShadow = isActive ? styles.focusRing : "none";
 
   button.addEventListener("mouseenter", () => {
-    button.style.background =
-      index === selectedIndex ? styles.itemSelected : styles.itemHover;
+    button.style.background = isActive ? styles.itemSelected : styles.itemHover;
   });
 
   button.addEventListener("mouseleave", () => {
-    button.style.background =
-      index === selectedIndex ? styles.itemSelected : "transparent";
+    button.style.background = isActive ? styles.itemSelected : "transparent";
   });
 
   button.addEventListener("mousedown", (event) => {
@@ -142,8 +149,11 @@ export const updateSuggestionSelection = (
   );
 
   items.forEach((item, index) => {
-    item.style.background =
-      index === selectedIndex ? styles.itemSelected : "transparent";
+    const isActive = index === selectedIndex;
+    item.style.background = isActive ? styles.itemSelected : "transparent";
+    item.style.borderColor = isActive ? styles.itemBorderActive : "transparent";
+    item.style.transform = isActive ? "translateY(-1px)" : "translateY(0)";
+    item.style.boxShadow = isActive ? styles.focusRing : "none";
   });
 };
 
@@ -163,25 +173,28 @@ const createFixAllButton = (
   button.type = "button";
   button.textContent = "Бүгдийг засах";
   button.setAttribute("data-fix-all", "true");
-  button.style.border = "none";
+  button.style.border = `1px solid ${styles.itemBorderActive}`;
   button.style.outline = "none";
-  button.style.background = styles.itemSelected;
-  button.style.color = styles.panelText;
+  button.style.background = styles.buttonBackground;
+  button.style.color = styles.buttonText;
   button.style.textAlign = "center";
-  button.style.padding = "10px 12px";
-  button.style.borderRadius = "10px";
+  button.style.padding = "11px 13px";
+  button.style.borderRadius = "12px";
   button.style.cursor = "pointer";
   button.style.fontSize = "13px";
-  button.style.fontWeight = "600";
+  button.style.fontWeight = "700";
   button.style.width = "100%";
-  button.style.transition = "background 0.15s ease";
+  button.style.transition =
+    "background 0.15s ease, border-color 0.15s ease, transform 0.15s ease";
 
   button.addEventListener("mouseenter", () => {
-    button.style.background = styles.itemHover;
+    button.style.background = styles.buttonHover;
+    button.style.transform = "translateY(-1px)";
   });
 
   button.addEventListener("mouseleave", () => {
-    button.style.background = styles.itemSelected;
+    button.style.background = styles.buttonBackground;
+    button.style.transform = "translateY(0)";
   });
 
   button.addEventListener("mousedown", (event) => {

@@ -1,3 +1,5 @@
+// src/content/core/checker/input/input.ts
+
 import { removeIndicator, updateIndicatorPosition } from "../../../ui";
 import { resolveActiveEditable } from "../../../dom";
 import {
@@ -32,6 +34,31 @@ import {
   updateDocsCacheIfNeeded,
 } from "../input/input-cache";
 import { readEditableTextAsync } from "../input/input-read";
+import {
+  getRecentPasteLikeInputType,
+  wasRecentPasteLikeInput,
+} from "../../events/input/bind";
+
+const shouldUseFullTextCheck = (event?: Event) => {
+  const inputType =
+    event &&
+    "inputType" in event &&
+    typeof (event as InputEvent).inputType === "string"
+      ? (event as InputEvent).inputType
+      : "";
+
+  if (
+    inputType === "insertFromPaste" ||
+    inputType === "insertFromDrop" ||
+    inputType === "insertFromYank" ||
+    inputType === "historyUndo" ||
+    inputType === "historyRedo"
+  ) {
+    return true;
+  }
+
+  return wasRecentPasteLikeInput();
+};
 
 export const handleInput = (event?: Event) => {
   if (shouldSkipHandleInput()) return;
@@ -40,6 +67,7 @@ export const handleInput = (event?: Event) => {
   if (!currentEditable) return;
 
   const preferCache = shouldPreferDocsCache(event);
+  const useFullTextCheck = shouldUseFullTextCheck(event);
 
   if (isGoogleDocsSite() && !preferCache) {
     scheduleGoogleDocsTextResync(currentEditable);
@@ -115,7 +143,20 @@ export const handleInput = (event?: Event) => {
           renderSuggestionIndicator();
           updateIndicatorPosition(latestEditable);
 
-          void checkText(latestText).finally(async () => {
+          console.log("[болор][input-check]", {
+            eventType: event?.type,
+            inputType:
+              event && "inputType" in event
+                ? (event as InputEvent).inputType
+                : "",
+            recentPasteLikeInputType: getRecentPasteLikeInputType(),
+            useFullTextCheck,
+            latestText,
+          });
+
+          void checkText(latestText, {
+            useFullText: useFullTextCheck,
+          }).finally(async () => {
             const liveEditable = resolveActiveEditable() ?? activeElement;
             if (!liveEditable) {
               removeIndicator();

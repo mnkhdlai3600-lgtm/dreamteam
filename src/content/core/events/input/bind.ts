@@ -1,3 +1,5 @@
+// src/content/core/events/input/bind.ts
+
 import {
   isGoogleDocsSite,
   resetGoogleDocsTextCache,
@@ -20,7 +22,12 @@ const IGNORED_KEYS = new Set([
   "ArrowRight",
 ]);
 
+const RECENT_RICH_INPUT_WINDOW_MS = 1500;
+
 export const boundDocs = new WeakSet<Document>();
+
+let lastPasteLikeInputAt = 0;
+let lastPasteLikeInputType = "";
 
 export const isDocsKeyboardEventAllowed = (event: KeyboardEvent) => {
   if (event.metaKey || event.ctrlKey || event.altKey) return false;
@@ -28,15 +35,60 @@ export const isDocsKeyboardEventAllowed = (event: KeyboardEvent) => {
   return true;
 };
 
+const markRecentPasteLikeInput = (type: string) => {
+  lastPasteLikeInputAt = Date.now();
+  lastPasteLikeInputType = type;
+};
+
+export const wasRecentPasteLikeInput = () => {
+  return Date.now() - lastPasteLikeInputAt <= RECENT_RICH_INPUT_WINDOW_MS;
+};
+
+export const getRecentPasteLikeInputType = () => {
+  if (!wasRecentPasteLikeInput()) return "";
+  return lastPasteLikeInputType;
+};
+
 export const bindInputListener = (doc: Document, source: string) => {
   if (boundDocs.has(doc)) return;
   boundDocs.add(doc);
 
-  console.log("[болор][input-bind] bound", {
-    source,
-    isDocs: isGoogleDocsSite(),
-    doc,
-  });
+  doc.addEventListener(
+    "beforeinput",
+    (event) => {
+      const inputType =
+        event && "inputType" in event
+          ? (event as InputEvent).inputType || ""
+          : "";
+
+      if (
+        inputType === "insertFromPaste" ||
+        inputType === "insertFromDrop" ||
+        inputType === "insertFromYank" ||
+        inputType === "historyUndo" ||
+        inputType === "historyRedo"
+      ) {
+        markRecentPasteLikeInput(inputType);
+      }
+    },
+    true,
+  );
+
+  doc.addEventListener(
+    "paste",
+    () => {
+      markRecentPasteLikeInput("insertFromPaste");
+    },
+    true,
+  );
+
+  doc.addEventListener(
+    "drop",
+    () => {
+      markRecentPasteLikeInput("insertFromDrop");
+    },
+    true,
+  );
 
   doc.addEventListener(
     "input",
@@ -50,11 +102,6 @@ export const bindInputListener = (doc: Document, source: string) => {
     "focusin",
     (event) => {
       if (!isGoogleDocsSite()) return;
-
-      console.log("[болор][input-focusin]", {
-        source,
-        target: event.target,
-      });
 
       resetGoogleDocsTextCache();
       syncGoogleDocsTextCache(event.target);

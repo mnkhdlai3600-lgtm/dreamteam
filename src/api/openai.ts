@@ -1,9 +1,6 @@
 export const correctWithOpenAI = async (text: string): Promise<string> => {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
-  console.log("OPENAI KEY EXISTS:", !!apiKey);
-  console.log("OPENAI TEXT:", text);
-
   if (!apiKey) {
     throw new Error("VITE_OPENAI_API_KEY missing");
   }
@@ -46,10 +43,7 @@ export const correctWithOpenAI = async (text: string): Promise<string> => {
     }),
   });
 
-  console.log("OPENAI STATUS:", response.status);
-
   const raw = await response.text();
-  console.log("OPENAI RAW:", raw);
 
   let data: any = {};
   try {

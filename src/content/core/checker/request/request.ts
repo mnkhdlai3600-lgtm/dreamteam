@@ -1,3 +1,5 @@
+// src/content/core/checker/request/request.ts
+
 import { removeIndicator, updateIndicatorPosition } from "../../../ui";
 import { sendCheckTextMessage } from "../../../../lib/chrome";
 import {
@@ -27,7 +29,12 @@ import { clearHighlightedErrors } from "../../error-state";
 import { buildCheckContext } from "./context";
 import { applyVisualState } from "./visual";
 import { syncSuggestionState } from "./suggestions";
+import { getCheckTargetText } from "../apply/apply-utils";
 import type { CheckResponseData } from "./types";
+
+type CheckTextOptions = {
+  useFullText?: boolean;
+};
 
 const normalizeCompareText = (value: string) =>
   value
@@ -63,11 +70,24 @@ const isDocsTextCloseEnough = (currentText: string, checkedText: string) => {
   return current.includes(checked) || checked.includes(current);
 };
 
-export const checkText = async (text: string) => {
+export const checkText = async (
+  text: string,
+  options: CheckTextOptions = {},
+) => {
   const trimmed = text.trim();
-  const justApplied = !!lastAppliedText && trimmed === lastAppliedText.trim();
-
-  if (!trimmed) {
+  const targetText = options.useFullText
+    ? trimmed
+    : getCheckTargetText(trimmed);
+  const lastAppliedTarget = options.useFullText
+    ? (lastAppliedText ?? "").trim()
+    : getCheckTargetText(lastAppliedText ?? "");
+  const justApplied = !!lastAppliedTarget && targetText === lastAppliedTarget;
+  console.log("[болор][request-check]", {
+    useFullText: options.useFullText ?? false,
+    trimmed,
+    targetText,
+  });
+  if (!trimmed || !targetText) {
     clearSuggestion();
     clearHighlightedErrors();
     setShouldAutoAdvanceError(false);
@@ -86,8 +106,13 @@ export const checkText = async (text: string) => {
   }
 
   try {
-    const response = await sendCheckTextMessage(trimmed);
-
+    const response = await sendCheckTextMessage(targetText);
+    console.log("[болор][request-response]", {
+      targetText,
+      corrected: response?.data?.corrected,
+      suggestions: response?.data?.suggestions,
+      errorWords: response?.data?.errorWords,
+    });
     if (!response?.success || !response.data) {
       throw new Error(response?.error || "Шалгалт амжилтгүй");
     }
@@ -98,37 +123,34 @@ export const checkText = async (text: string) => {
     setActiveElement(currentEditable);
 
     const currentText = getCurrentComparableText(currentEditable);
+    const currentTargetText = options.useFullText
+      ? currentText.trim()
+      : getCheckTargetText(currentText);
 
     if (!currentText && !isGoogleDocsSite()) {
       return;
     }
 
-    if (!isGoogleDocsSite() && currentText !== trimmed) {
+    if (!isGoogleDocsSite() && currentTargetText !== targetText) {
       return;
     }
 
-    if (isGoogleDocsSite() && currentText) {
-      const sameEnough = isDocsTextCloseEnough(currentText, trimmed);
+    if (isGoogleDocsSite() && currentTargetText) {
+      const sameEnough = isDocsTextCloseEnough(currentTargetText, targetText);
 
       if (!sameEnough) {
-        const currentLen = normalizeCompareText(currentText).length;
-        const checkedLen = normalizeCompareText(trimmed).length;
+        const currentLen = normalizeCompareText(currentTargetText).length;
+        const checkedLen = normalizeCompareText(targetText).length;
         const lengthGap = Math.abs(currentLen - checkedLen);
 
         if (lengthGap > 120) {
-          console.log("[болор][docs][request] skipped-large-drift", {
-            currentText,
-            trimmed,
-            currentLen,
-            checkedLen,
-          });
           return;
         }
       }
     }
 
     const ctx = buildCheckContext(
-      trimmed,
+      targetText,
       response.data as CheckResponseData,
       justApplied,
     );
@@ -137,8 +159,13 @@ export const checkText = async (text: string) => {
 
     const { autoAdvanceHandled } = await applyVisualState(currentEditable, ctx);
 
-    syncSuggestionState(currentEditable, ctx, autoAdvanceHandled);
-    setLastCheckedText(trimmed);
+    syncSuggestionState(
+      currentEditable,
+      ctx,
+      autoAdvanceHandled,
+      options.useFullText ?? false,
+    );
+    setLastCheckedText(targetText);
   } catch {
     clearSuggestion();
     clearHighlightedErrors();

@@ -1,4 +1,5 @@
-import { selectedErrorRange } from "../../state";
+import { selectedErrorRange, shouldApplyFullTextSuggestion } from "../../state";
+import { replaceActiveSentenceText } from "./apply-utils";
 
 export const replaceSelectedRangeInInput = (
   element: HTMLInputElement | HTMLTextAreaElement,
@@ -36,6 +37,21 @@ export const applySuggestionToInput = (
   if (!isLatinInput && (hasSavedRange || hasLiveSelection)) {
     const nextText = replaceSelectedRangeInInput(element, suggestion);
     return { ok: true, nextText };
+  }
+
+  if (isLatinInput) {
+    const currentValue = element.value;
+    const nextText = shouldApplyFullTextSuggestion
+      ? suggestion
+      : replaceActiveSentenceText(currentValue, suggestion);
+
+    element.value = nextText;
+    element.setSelectionRange(nextText.length, nextText.length);
+
+    return {
+      ok: true,
+      nextText,
+    };
   }
 
   element.value = suggestion;
