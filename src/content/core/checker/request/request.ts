@@ -3,11 +3,17 @@ import { sendCheckTextMessage } from "../../../../lib/chrome";
 import {
   activeElement,
   clearSuggestion,
+  docsFrozenBaseText,
   lastAppliedText,
+  lastCheckedText,
+  resetDocsFrozenBaseText,
   resetIndicatorVisualState,
+  resetLastDocsRequestScope,
   setActiveElement,
   setLastCheckedText,
   setLastCheckWasLatin,
+  setLastDocsRequestPrefix,
+  setLastDocsRequestText,
   setShouldAutoAdvanceError,
 } from "../../state";
 import { renderSuggestionIndicator } from "../render";
@@ -17,7 +23,6 @@ import {
   resolveActiveEditable,
 } from "../../../dom";
 import {
-  getGoogleDocsText,
   getGoogleDocsTextCache,
   isGoogleDocsSite,
   setGoogleDocsTextCache,
@@ -29,6 +34,27 @@ import { applyVisualState } from "./visual";
 import { syncSuggestionState } from "./suggestions";
 import type { CheckResponseData } from "./types";
 
+const DOCS_REQUEST_LOG = "[docs-request-debug]";
+const LATIN_RE = /[A-Za-z]/;
+const CLAUSE_BREAK_RE = /([.?!]\s+|[,;:]\s+|\n+)/g;
+
+const previewText = (value: string, limit = 160) => {
+  const safe = value
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/\t/g, "\\t");
+
+  if (safe.length <= limit) return safe;
+  return `${safe.slice(0, limit)}...`;
+};
+
+const logDocsRequest = (
+  label: string,
+  payload: Record<string, unknown> = {},
+) => {
+  console.log(`${DOCS_REQUEST_LOG} ${label}`, payload);
+};
+
 const normalizeCompareText = (value: string) =>
   value
     .replace(/\u00A0/g, " ")
@@ -39,18 +65,193 @@ const normalizeCompareText = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const hasLatinChars = (value: string) => LATIN_RE.test(value);
+
 const getCurrentComparableText = (editable: HTMLElement) => {
   if (!isGoogleDocsSite()) {
     return getElementText(editable).trim();
   }
 
   const synced = syncGoogleDocsTextCache(editable);
-  if (synced.trim()) return synced.trim();
+  if (synced) {
+    logDocsRequest("current-text:from-synced", {
+      text: previewText(synced),
+      length: synced.length,
+    });
+    return synced;
+  }
 
-  const cached = getGoogleDocsTextCache().trim();
-  if (cached) return cached;
+  const cached = getGoogleDocsTextCache();
+  if (cached) {
+    logDocsRequest("current-text:from-cache", {
+      text: previewText(cached),
+      length: cached.length,
+    });
+    return cached;
+  }
 
-  return getGoogleDocsText().trim();
+  logDocsRequest("current-text:empty");
+  return "";
+};
+
+const getLastClauseStart = (text: string) => {
+  const matches = [...text.matchAll(CLAUSE_BREAK_RE)];
+  const last = matches[matches.length - 1];
+
+  if (!last || last.index == null) {
+    return 0;
+  }
+
+  return last.index + last[0].length;
+};
+
+const buildDeltaPayload = (fullText: string, baseText: string) => {
+  const trimmedFull = fullText.trim();
+  const trimmedBase = baseText.trim();
+
+  if (!trimmedFull) {
+    return { requestText: "", prefix: "" };
+  }
+
+  if (!trimmedBase) {
+    return { requestText: trimmedFull, prefix: "" };
+  }
+
+  if (normalizeCompareText(trimmedFull) === normalizeCompareText(trimmedBase)) {
+    return { requestText: "", prefix: trimmedBase };
+  }
+
+  if (trimmedFull.startsWith(trimmedBase)) {
+    const requestText = trimmedFull.slice(trimmedBase.length).trim();
+    return {
+      requestText,
+      prefix: trimmedBase,
+    };
+  }
+
+  return { requestText: trimmedFull, prefix: "" };
+};
+
+const buildClauseScopedPayload = (text: string) => {
+  const trimmedText = text.trim();
+
+  if (!trimmedText) {
+    return { requestText: "", prefix: "" };
+  }
+
+  const clauseStart = getLastClauseStart(trimmedText);
+  const requestText = trimmedText.slice(clauseStart).trim();
+
+  if (!requestText) {
+    return { requestText: trimmedText, prefix: "" };
+  }
+
+  return {
+    requestText,
+    prefix: trimmedText.slice(0, clauseStart).trimEnd(),
+  };
+};
+
+const getDocsScopedPayload = (text: string) => {
+  const trimmedText = text.trim();
+
+  logDocsRequest("scope:start", {
+    text: previewText(trimmedText),
+    docsFrozenBaseText: previewText(docsFrozenBaseText),
+    lastAppliedText: previewText(lastAppliedText ?? ""),
+    lastCheckedText: previewText(lastCheckedText),
+  });
+
+  if (!trimmedText) {
+    logDocsRequest("scope:empty");
+    return { requestText: "", prefix: "" };
+  }
+
+  const frozen = docsFrozenBaseText.trim();
+  if (frozen) {
+    const byFrozen = buildDeltaPayload(trimmedText, frozen);
+
+    logDocsRequest("scope:by-frozen", {
+      frozen: previewText(frozen),
+      requestText: previewText(byFrozen.requestText),
+      prefix: previewText(byFrozen.prefix),
+    });
+
+    if (byFrozen.requestText || byFrozen.prefix) {
+      return byFrozen;
+    }
+
+    resetDocsFrozenBaseText();
+    logDocsRequest("scope:reset-frozen");
+  }
+
+  const applied = (lastAppliedText ?? "").trim();
+  if (applied) {
+    const byApplied = buildDeltaPayload(trimmedText, applied);
+
+    logDocsRequest("scope:by-applied", {
+      applied: previewText(applied),
+      requestText: previewText(byApplied.requestText),
+      prefix: previewText(byApplied.prefix),
+    });
+
+    if (byApplied.requestText || byApplied.prefix) {
+      return byApplied;
+    }
+  }
+
+  const byClause = buildClauseScopedPayload(trimmedText);
+
+  logDocsRequest("scope:by-clause", {
+    requestText: previewText(byClause.requestText),
+    prefix: previewText(byClause.prefix),
+  });
+
+  return byClause;
+};
+
+const getNonDocsLatinScopedPayload = (text: string) => {
+  const trimmedText = text.trim();
+
+  if (!trimmedText) {
+    return { requestText: "", prefix: "" };
+  }
+
+  const applied = (lastAppliedText ?? "").trim();
+  if (applied) {
+    const byApplied = buildDeltaPayload(trimmedText, applied);
+    if (byApplied.requestText) {
+      return byApplied;
+    }
+  }
+
+  const checked = lastCheckedText.trim();
+  if (checked) {
+    const byChecked = buildDeltaPayload(trimmedText, checked);
+    if (byChecked.requestText) {
+      return byChecked;
+    }
+  }
+
+  return buildClauseScopedPayload(trimmedText);
+};
+
+const getScopedPayload = (text: string) => {
+  const trimmedText = text.trim();
+
+  if (!trimmedText) {
+    return { requestText: "", prefix: "" };
+  }
+
+  if (isGoogleDocsSite()) {
+    return getDocsScopedPayload(trimmedText);
+  }
+
+  if (hasLatinChars(trimmedText)) {
+    return getNonDocsLatinScopedPayload(trimmedText);
+  }
+
+  return { requestText: trimmedText, prefix: "" };
 };
 
 const isDocsTextCloseEnough = (currentText: string, checkedText: string) => {
@@ -65,19 +266,42 @@ const isDocsTextCloseEnough = (currentText: string, checkedText: string) => {
 
 export const checkText = async (text: string) => {
   const trimmed = text.trim();
+  const docsSite = isGoogleDocsSite();
+  const scoped = getScopedPayload(trimmed);
+  const requestText = scoped.requestText.trim();
   const justApplied = !!lastAppliedText && trimmed === lastAppliedText.trim();
 
-  if (!trimmed) {
+  logDocsRequest("check:start", {
+    docsSite,
+    inputText: previewText(text),
+    trimmed: previewText(trimmed),
+    requestText: previewText(requestText),
+    prefix: previewText(scoped.prefix),
+    justApplied,
+  });
+
+  if (!requestText) {
+    logDocsRequest("check:skip-empty-request");
     clearSuggestion();
     clearHighlightedErrors();
     setShouldAutoAdvanceError(false);
     resetIndicatorVisualState();
+    resetLastDocsRequestScope();
     removeIndicator();
     return;
   }
 
-  if (isGoogleDocsSite()) {
+  if (docsSite) {
     setGoogleDocsTextCache(trimmed);
+    setLastDocsRequestText(requestText);
+    setLastDocsRequestPrefix(scoped.prefix);
+
+    logDocsRequest("check:set-docs-scope", {
+      requestText: previewText(requestText),
+      prefix: previewText(scoped.prefix),
+    });
+  } else {
+    resetLastDocsRequestScope();
   }
 
   if (justApplied) {
@@ -86,7 +310,7 @@ export const checkText = async (text: string) => {
   }
 
   try {
-    const response = await sendCheckTextMessage(trimmed);
+    const response = await sendCheckTextMessage(requestText);
 
     if (!response?.success || !response.data) {
       throw new Error(response?.error || "Шалгалт амжилтгүй");
@@ -99,28 +323,60 @@ export const checkText = async (text: string) => {
 
     const currentText = getCurrentComparableText(currentEditable);
 
-    if (!currentText && !isGoogleDocsSite()) {
+    logDocsRequest("check:after-response", {
+      requestText: previewText(requestText),
+      currentText: previewText(currentText),
+      responseCorrected: previewText(
+        typeof response.data.corrected === "string"
+          ? response.data.corrected
+          : "",
+      ),
+      responseSuggestions: Array.isArray(response.data.suggestions)
+        ? response.data.suggestions
+        : [],
+      responseErrorWords: Array.isArray(response.data.errorWords)
+        ? response.data.errorWords
+        : [],
+    });
+
+    if (!currentText && !docsSite) {
       return;
     }
 
-    if (!isGoogleDocsSite() && currentText !== trimmed) {
-      return;
+    if (!docsSite) {
+      const normalizedCurrent = normalizeCompareText(currentText);
+      const normalizedRequest = normalizeCompareText(requestText);
+
+      if (
+        normalizedCurrent &&
+        normalizedRequest &&
+        !normalizedCurrent.endsWith(normalizedRequest)
+      ) {
+        return;
+      }
     }
 
-    if (isGoogleDocsSite() && currentText) {
-      const sameEnough = isDocsTextCloseEnough(currentText, trimmed);
+    if (docsSite && currentText) {
+      const sameEnough = isDocsTextCloseEnough(currentText, requestText);
+
+      logDocsRequest("check:docs-compare", {
+        currentText: previewText(currentText),
+        requestText: previewText(requestText),
+        sameEnough,
+        currentLength: normalizeCompareText(currentText).length,
+        requestLength: normalizeCompareText(requestText).length,
+      });
 
       if (!sameEnough) {
         const currentLen = normalizeCompareText(currentText).length;
-        const checkedLen = normalizeCompareText(trimmed).length;
+        const checkedLen = normalizeCompareText(requestText).length;
         const lengthGap = Math.abs(currentLen - checkedLen);
 
         if (lengthGap > 120) {
-          console.log("[болор][docs][request] skipped-large-drift", {
-            currentText,
-            trimmed,
+          logDocsRequest("check:skip-length-gap", {
             currentLen,
             checkedLen,
+            lengthGap,
           });
           return;
         }
@@ -128,18 +384,41 @@ export const checkText = async (text: string) => {
     }
 
     const ctx = buildCheckContext(
-      trimmed,
+      requestText,
       response.data as CheckResponseData,
       justApplied,
     );
+
+    const shouldKeepLatinActive =
+      hasLatinChars(requestText) || hasLatinChars(currentText);
+
+    ctx.isLatinInput = ctx.isLatinInput || shouldKeepLatinActive;
+
+    logDocsRequest("check:context", {
+      trimmed: previewText(ctx.trimmed),
+      corrected: previewText(ctx.corrected),
+      displaySuggestions: ctx.displaySuggestions,
+      errorWords: ctx.errorWords,
+      isLatinInput: ctx.isLatinInput,
+      hasSentenceCorrection: ctx.hasSentenceCorrection,
+      hasSuggestions: ctx.hasSuggestions,
+    });
 
     setLastCheckWasLatin(ctx.isLatinInput);
 
     const { autoAdvanceHandled } = await applyVisualState(currentEditable, ctx);
 
     syncSuggestionState(currentEditable, ctx, autoAdvanceHandled);
-    setLastCheckedText(trimmed);
-  } catch {
+    setLastCheckedText(docsSite ? currentText : requestText);
+
+    logDocsRequest("check:done", {
+      savedLastCheckedText: previewText(docsSite ? currentText : requestText),
+    });
+  } catch (error) {
+    logDocsRequest("check:error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
     clearSuggestion();
     clearHighlightedErrors();
     resetIndicatorVisualState();

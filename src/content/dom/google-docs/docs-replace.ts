@@ -52,20 +52,13 @@ const selectAllDocsContent = (target: HTMLElement) => {
   }
 };
 
-const getDocsCommandTargets = (preferred: HTMLElement) => {
-  const candidates = [
-    preferred,
-    getGoogleDocsEventTarget(),
-    getGoogleDocsIframeBody(),
-  ].filter(Boolean) as HTMLElement[];
-
-  const unique: HTMLElement[] = [];
-
-  for (const item of candidates) {
-    if (!unique.includes(item)) unique.push(item);
-  }
-
-  return unique;
+const getDocsCommandTarget = () => {
+  return (
+    getGoogleDocsIframeBody() ??
+    resolveGoogleDocsActiveEditable() ??
+    getGoogleDocsEventTarget() ??
+    null
+  );
 };
 
 const dispatchDocsInputEvent = (target: HTMLElement, value: string) => {
@@ -174,46 +167,36 @@ const verifyDocsReplaceResult = (
 export const replaceGoogleDocsText = async (value: string) => {
   const normalized = normalizeDocsCacheText(value);
 
-  const visualTarget =
-    resolveGoogleDocsActiveEditable() ??
-    getGoogleDocsEventTarget() ??
-    getGoogleDocsIframeBody();
+  const commandTarget = getDocsCommandTarget();
+  if (!commandTarget) return false;
 
-  if (!visualTarget) return false;
+  const compareTarget = commandTarget;
 
-  const selected = selectAllDocsContent(visualTarget);
+  const selected = selectAllDocsContent(commandTarget);
   if (!selected) return false;
 
-  const commandTargets = getDocsCommandTargets(visualTarget);
+  const inserted = tryExecInsertTextOnHost(commandTarget, normalized);
 
-  for (const commandTarget of commandTargets) {
-    const inserted = tryExecInsertTextOnHost(commandTarget, normalized);
-    if (!inserted) continue;
-
-    if (verifyDocsReplaceResult(visualTarget, normalized)) {
-      setGoogleDocsTextCache(normalized);
-      scheduleGoogleDocsTextResync(visualTarget);
-      return true;
-    }
+  if (inserted && verifyDocsReplaceResult(compareTarget, normalized)) {
+    setGoogleDocsTextCache(normalized);
+    scheduleGoogleDocsTextResync(compareTarget);
+    return true;
   }
 
   const clipboardOk = await writeTextToClipboard(normalized);
   if (!clipboardOk) return false;
 
-  const reselected = selectAllDocsContent(visualTarget);
+  const reselected = selectAllDocsContent(commandTarget);
   if (!reselected) return false;
 
-  for (const commandTarget of commandTargets) {
-    clearDocsSelectionWithDelete(commandTarget);
+  clearDocsSelectionWithDelete(commandTarget);
 
-    const pasted = await tryExecPasteOnHost(commandTarget);
-    if (!pasted) continue;
+  const pasted = await tryExecPasteOnHost(commandTarget);
 
-    if (verifyDocsReplaceResult(visualTarget, normalized)) {
-      setGoogleDocsTextCache(normalized);
-      scheduleGoogleDocsTextResync(visualTarget);
-      return true;
-    }
+  if (pasted && verifyDocsReplaceResult(compareTarget, normalized)) {
+    setGoogleDocsTextCache(normalized);
+    scheduleGoogleDocsTextResync(compareTarget);
+    return true;
   }
 
   return false;

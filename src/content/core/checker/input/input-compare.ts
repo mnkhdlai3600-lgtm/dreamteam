@@ -41,12 +41,16 @@ export const getVisualStateFromText = (text: string) => {
 export const shouldSkipSameTextCheck = (text: string) => {
   if (!text) return true;
 
-  if (lastAppliedText && text === lastAppliedText.trim()) {
+  const normalizedText = normalizeCompareText(text);
+  const normalizedApplied = normalizeCompareText(lastAppliedText ?? "");
+  const normalizedChecked = normalizeCompareText(lastCheckedText);
+
+  if (normalizedApplied && normalizedText === normalizedApplied) {
     return true;
   }
 
-  if (!isGoogleDocsSite() && text === lastCheckedText) {
-    return true;
+  if (!isGoogleDocsSite()) {
+    return !!normalizedChecked && normalizedText === normalizedChecked;
   }
 
   return false;

@@ -1,7 +1,6 @@
 const DOCS_HOST = "docs.google.com";
 
-export const DOCS_PAGE_SELECTOR =
-  ".kix-page-paginated, .kix-page-column, .kix-page";
+export const DOCS_PAGE_SELECTOR = ".kix-page-paginated, .kix-page";
 export const DOCS_CANVAS_SELECTOR = "canvas.kix-canvas-tile-content";
 export const DOCS_IFRAME_SELECTOR =
   ".docs-texteventtarget-iframe, iframe.docs-texteventtarget-iframe";
@@ -15,11 +14,9 @@ export const DOCS_ROOT_SELECTORS = [
   DOCS_PAGE_SELECTOR,
 ].join(",");
 
-export const DOCS_TEXT_SELECTORS = [
-  ".kix-wordhtmlgenerator-word-node",
-  ".kix-lineview-text-block",
-  ".kix-lineview-content",
-].join(",");
+export const DOCS_TEXT_SELECTORS = [".kix-wordhtmlgenerator-word-node"].join(
+  ",",
+);
 
 export const DOCS_CURSOR_SELECTORS = [
   ".kix-cursor",
@@ -102,6 +99,26 @@ export const isVisibleDocsRect = (rect: DOMRect | null) => {
   );
 };
 
+const pageHasDocsContent = (page: HTMLElement | null) => {
+  if (!page) return false;
+
+  if (page.querySelector(DOCS_TEXT_SELECTORS)) return true;
+  if (page.querySelector(DOCS_CANVAS_SELECTOR)) return true;
+  if ((page.innerText || page.textContent || "").trim()) return true;
+
+  return false;
+};
+
+const getDocsSearchDocuments = () => {
+  const docs: Document[] = [];
+  const iframeDoc = getGoogleDocsIframeDocument();
+
+  if (iframeDoc) docs.push(iframeDoc);
+  docs.push(document);
+
+  return docs;
+};
+
 export const isEditableDocsTarget = (
   el: HTMLElement | null,
 ): el is HTMLElement => {
@@ -180,7 +197,35 @@ export const getGoogleDocsCanvas = (
     if (closestCanvas instanceof HTMLCanvasElement) return closestCanvas;
   }
 
-  return document.querySelector<HTMLCanvasElement>(DOCS_CANVAS_SELECTOR);
+  for (const doc of getDocsSearchDocuments()) {
+    const canvas = doc.querySelector(DOCS_CANVAS_SELECTOR);
+    if (canvas instanceof HTMLCanvasElement) return canvas;
+  }
+
+  return null;
+};
+
+const getBestVisibleDocsPageFromDoc = (doc: Document) => {
+  const pages = Array.from(
+    doc.querySelectorAll<HTMLElement>(DOCS_PAGE_SELECTOR),
+  ).filter((page) => {
+    return (
+      isVisibleDocsRect(page.getBoundingClientRect()) &&
+      pageHasDocsContent(page)
+    );
+  });
+
+  if (!pages.length) return null;
+
+  pages.sort((a, b) => {
+    const ar = a.getBoundingClientRect();
+    const br = b.getBoundingClientRect();
+
+    if (ar.top !== br.top) return ar.top - br.top;
+    return ar.left - br.left;
+  });
+
+  return pages[0] ?? null;
 };
 
 export const getGoogleDocsPage = (
@@ -190,14 +235,19 @@ export const getGoogleDocsPage = (
 
   if (targetEl) {
     const page = asHtmlElement(targetEl.closest(DOCS_PAGE_SELECTOR));
+    if (page && pageHasDocsContent(page)) return page;
+  }
+
+  for (const doc of getDocsSearchDocuments()) {
+    const page = getBestVisibleDocsPageFromDoc(doc);
     if (page) return page;
   }
 
-  const selected = queryHtmlElement(document, DOCS_PAGE_SELECTOR);
-  if (selected) return selected;
-
   const canvas = getGoogleDocsCanvas(target);
-  return asHtmlElement(canvas?.closest(DOCS_PAGE_SELECTOR) ?? null);
+  const canvasPage = asHtmlElement(canvas?.closest(DOCS_PAGE_SELECTOR) ?? null);
+  if (canvasPage && pageHasDocsContent(canvasPage)) return canvasPage;
+
+  return null;
 };
 
 export const getGoogleDocsEditorRoot = (
@@ -227,7 +277,12 @@ export const getGoogleDocsEditorRoot = (
     if (root) return root;
   }
 
-  return queryHtmlElement(document, DOCS_ROOT_SELECTORS);
+  for (const doc of getDocsSearchDocuments()) {
+    const root = queryHtmlElement(doc, DOCS_ROOT_SELECTORS);
+    if (root) return root;
+  }
+
+  return null;
 };
 
 export const resolveGoogleDocsActiveEditable = (): HTMLElement | null => {

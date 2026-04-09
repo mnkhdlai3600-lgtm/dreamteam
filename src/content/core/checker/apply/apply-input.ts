@@ -1,4 +1,26 @@
-import { selectedErrorRange } from "../../state";
+import {
+  lastAppliedText,
+  lastCheckedText,
+  selectedErrorRange,
+} from "../../state";
+
+const normalizeCompareText = (value: string) =>
+  value
+    .replace(/\u00A0/g, " ")
+    .replace(/\u200B/g, "")
+    .replace(/\r/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const setCaretToEnd = (
+  element: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) => {
+  const nextCaret = value.length;
+  element.setSelectionRange(nextCaret, nextCaret);
+};
 
 export const replaceSelectedRangeInInput = (
   element: HTMLInputElement | HTMLTextAreaElement,
@@ -22,6 +44,68 @@ export const replaceSelectedRangeInInput = (
   return nextValue;
 };
 
+const replaceLastScopedTextInInput = (
+  element: HTMLInputElement | HTMLTextAreaElement,
+  replacement: string,
+) => {
+  const currentValue = element.value;
+  const checked = lastCheckedText.trim();
+  const applied = (lastAppliedText ?? "").trim();
+
+  if (!currentValue.trim()) {
+    element.value = replacement;
+    setCaretToEnd(element, replacement);
+    return replacement;
+  }
+
+  if (checked) {
+    const normalizedCurrent = normalizeCompareText(currentValue);
+    const normalizedChecked = normalizeCompareText(checked);
+
+    if (
+      normalizedCurrent &&
+      normalizedChecked &&
+      normalizedCurrent.endsWith(normalizedChecked)
+    ) {
+      const index = currentValue.lastIndexOf(checked);
+
+      if (index >= 0) {
+        const nextValue =
+          currentValue.slice(0, index) +
+          replacement +
+          currentValue.slice(index + checked.length);
+
+        element.value = nextValue;
+        setCaretToEnd(element, nextValue);
+        return nextValue;
+      }
+    }
+  }
+
+  if (applied && currentValue.startsWith(applied)) {
+    const suffix = currentValue.slice(applied.length).trimStart();
+
+    if (suffix) {
+      const suffixIndex = currentValue.lastIndexOf(suffix);
+
+      if (suffixIndex >= 0) {
+        const nextValue =
+          currentValue.slice(0, suffixIndex) +
+          replacement +
+          currentValue.slice(suffixIndex + suffix.length);
+
+        element.value = nextValue;
+        setCaretToEnd(element, nextValue);
+        return nextValue;
+      }
+    }
+  }
+
+  element.value = replacement;
+  setCaretToEnd(element, replacement);
+  return replacement;
+};
+
 export const applySuggestionToInput = (
   element: HTMLInputElement | HTMLTextAreaElement,
   suggestion: string,
@@ -38,8 +122,13 @@ export const applySuggestionToInput = (
     return { ok: true, nextText };
   }
 
+  if (isLatinInput) {
+    const nextText = replaceLastScopedTextInInput(element, suggestion);
+    return { ok: true, nextText };
+  }
+
   element.value = suggestion;
-  element.setSelectionRange(suggestion.length, suggestion.length);
+  setCaretToEnd(element, suggestion);
 
   return {
     ok: true,

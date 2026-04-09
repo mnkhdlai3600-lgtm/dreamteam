@@ -32,12 +32,6 @@ export const bindInputListener = (doc: Document, source: string) => {
   if (boundDocs.has(doc)) return;
   boundDocs.add(doc);
 
-  console.log("[болор][input-bind] bound", {
-    source,
-    isDocs: isGoogleDocsSite(),
-    doc,
-  });
-
   doc.addEventListener(
     "input",
     (event) => {
@@ -51,11 +45,6 @@ export const bindInputListener = (doc: Document, source: string) => {
     (event) => {
       if (!isGoogleDocsSite()) return;
 
-      console.log("[болор][input-focusin]", {
-        source,
-        target: event.target,
-      });
-
       resetGoogleDocsTextCache();
       syncGoogleDocsTextCache(event.target);
     },
@@ -68,12 +57,6 @@ export const bindInputListener = (doc: Document, source: string) => {
       if (!isGoogleDocsSite()) return;
       if (!isDocsKeyboardEventAllowed(event)) return;
 
-      console.log("[болор][input-keydown]", {
-        source,
-        key: event.key,
-        target: event.target,
-      });
-
       updateGoogleDocsTextCacheFromKeyboardEvent(event);
     },
     true,
@@ -85,12 +68,6 @@ export const bindInputListener = (doc: Document, source: string) => {
       if (!isGoogleDocsSite()) return;
       if (shouldSkipHandleInput()) return;
       if (!isDocsKeyboardEventAllowed(event)) return;
-
-      console.log("[болор][input-keyup]", {
-        source,
-        key: event.key,
-        target: event.target,
-      });
 
       window.setTimeout(() => {
         runInputFlow(event, `${source}:keyup`);

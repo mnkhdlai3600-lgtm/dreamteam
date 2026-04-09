@@ -17,6 +17,9 @@ export let isComposing = false;
 export let isSuggestionMenuOpen = false;
 export let isSuggestionLoading = false;
 
+export let lastDocsRequestText = "";
+export let lastDocsRequestPrefix = "";
+
 export type SuggestionPhase = "idle" | "typing" | "loading" | "suggesting";
 export let suggestionPhase: SuggestionPhase = "idle";
 
@@ -103,6 +106,19 @@ export const setLastCheckedText = (value: string) => {
 
 export const setLastCheckWasLatin = (value: boolean) => {
   lastCheckWasLatin = value;
+};
+
+export const setLastDocsRequestText = (value: string) => {
+  lastDocsRequestText = value;
+};
+
+export const setLastDocsRequestPrefix = (value: string) => {
+  lastDocsRequestPrefix = value;
+};
+
+export const resetLastDocsRequestScope = () => {
+  lastDocsRequestText = "";
+  lastDocsRequestPrefix = "";
 };
 
 export const setSuppressInputUntil = (value: number) => {
@@ -214,4 +230,19 @@ export const getLastEditableElement = () => lastEditableElement;
 
 export const setLastEditableElement = (value: HTMLElement | null) => {
   lastEditableElement = value;
+};
+
+export let pauseDocsSuggestionUntilInput = false;
+
+export const setPauseDocsSuggestionUntilInput = (value: boolean) => {
+  pauseDocsSuggestionUntilInput = value;
+};
+export let docsFrozenBaseText = "";
+
+export const setDocsFrozenBaseText = (value: string) => {
+  docsFrozenBaseText = value;
+};
+
+export const resetDocsFrozenBaseText = () => {
+  docsFrozenBaseText = "";
 };

@@ -3,6 +3,7 @@ import { updateIndicatorPosition } from "../../../ui";
 import { cancelPendingRequests, clearSuggestion } from "../../state";
 import {
   resetIndicatorVisualState,
+  resetDocsFrozenBaseText,
   setIndicatorVisualState,
   setIsSuggestionLoading,
   setLastAppliedText,
@@ -10,6 +11,7 @@ import {
   setSuggestionPhase,
 } from "../../state";
 import {
+  isGoogleDocsSite,
   resetGoogleDocsTextCache,
   setGoogleDocsTextCache,
 } from "../../../dom/google-docs";
@@ -21,6 +23,14 @@ export const resetEmptyState = (editable: HTMLElement) => {
   cancelPendingRequests();
   setIsSuggestionLoading(false);
   clearSuggestion();
+  setLastCheckedText("");
+  setLastAppliedText(null);
+
+  if (isGoogleDocsSite()) {
+    resetGoogleDocsTextCache();
+    resetDocsFrozenBaseText();
+  }
+
   resetIndicatorVisualState();
   setSuggestionPhase("idle");
   renderSuggestionIndicator();

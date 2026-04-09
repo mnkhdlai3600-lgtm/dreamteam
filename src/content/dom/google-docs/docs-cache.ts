@@ -1,7 +1,7 @@
 import {
-  getActiveDocsPage,
+  getVisibleDocsPages,
   normalizeDocsCacheText,
-  readDocsTextFromPage,
+  readDocsTextFromPages,
 } from "./docs-text";
 
 let docsTextCache = "";
@@ -9,6 +9,107 @@ let docsTextCache = "";
 const isPlainTypingKey = (key: string) => {
   if (key.length !== 1) return false;
   return !/[\u0000-\u001F]/.test(key);
+};
+
+const normalizeComparableText = (value: string) =>
+  normalizeDocsCacheText(value)
+    .replace(/\u00A0/g, " ")
+    .replace(/\u200B/g, "")
+    .replace(/\r/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const normalizeNoSpaceText = (value: string) =>
+  normalizeComparableText(value).replace(/\s+/g, "");
+
+const countSpaces = (value: string) =>
+  (normalizeComparableText(value).match(/\s/g) ?? []).length;
+
+const hasLatinLetters = (value: string) => /[A-Za-z]/.test(value);
+
+const areTextsEquivalent = (pageText: string, cacheText: string) => {
+  const pageComparable = normalizeComparableText(pageText);
+  const cacheComparable = normalizeComparableText(cacheText);
+  const pageNoSpace = normalizeNoSpaceText(pageText);
+  const cacheNoSpace = normalizeNoSpaceText(cacheText);
+
+  if (!pageComparable || !cacheComparable) return false;
+  return pageComparable === cacheComparable || pageNoSpace === cacheNoSpace;
+};
+
+const shouldPreferCacheOverPage = (
+  normalizedPage: string,
+  normalizedCache: string,
+) => {
+  if (!normalizedPage || !normalizedCache) return false;
+
+  const pageComparable = normalizeComparableText(normalizedPage);
+  const cacheComparable = normalizeComparableText(normalizedCache);
+  const pageNoSpace = normalizeNoSpaceText(normalizedPage);
+  const cacheNoSpace = normalizeNoSpaceText(normalizedCache);
+  const pageSpaces = countSpaces(normalizedPage);
+  const cacheSpaces = countSpaces(normalizedCache);
+
+  if (!pageNoSpace || !cacheNoSpace) return false;
+
+  if (
+    cacheComparable.length > pageComparable.length &&
+    cacheComparable.includes(pageComparable)
+  ) {
+    return true;
+  }
+
+  if (
+    cacheNoSpace.length > pageNoSpace.length &&
+    cacheNoSpace.includes(pageNoSpace)
+  ) {
+    return true;
+  }
+
+  const sameContent = areTextsEquivalent(normalizedPage, normalizedCache);
+
+  if (!sameContent) {
+    return false;
+  }
+
+  if (pageNoSpace === cacheNoSpace && cacheSpaces > pageSpaces) {
+    return true;
+  }
+
+  const latinSpacingLost =
+    hasLatinLetters(normalizedCache) &&
+    cacheSpaces > 0 &&
+    pageSpaces === 0 &&
+    pageNoSpace === cacheNoSpace;
+
+  if (latinSpacingLost) {
+    return true;
+  }
+
+  const pageLooksCollapsed =
+    hasLatinLetters(normalizedCache) &&
+    cacheSpaces > pageSpaces &&
+    pageComparable.replace(/\s+/g, "") === cacheComparable.replace(/\s+/g, "");
+
+  if (pageLooksCollapsed) {
+    return true;
+  }
+
+  return false;
+};
+
+const chooseBetterDocsText = (pageText: string, cachedText: string) => {
+  const normalizedPage = normalizeDocsCacheText(pageText);
+  const normalizedCache = normalizeDocsCacheText(cachedText);
+
+  if (!normalizedPage) return normalizedCache;
+  if (!normalizedCache) return normalizedPage;
+
+  if (shouldPreferCacheOverPage(normalizedPage, normalizedCache)) {
+    return normalizedCache;
+  }
+
+  return normalizedPage;
 };
 
 export const resetGoogleDocsTextCache = () => {
@@ -23,15 +124,31 @@ export const getGoogleDocsTextCache = () =>
   normalizeDocsCacheText(docsTextCache);
 
 export const syncGoogleDocsTextCache = (target?: EventTarget | null) => {
-  const activePage = getActiveDocsPage(target);
-  const fromPage = readDocsTextFromPage(activePage);
+  const visiblePages = getVisibleDocsPages(target);
+  const fromPages = readDocsTextFromPages(visiblePages);
+  const currentCache = normalizeDocsCacheText(docsTextCache);
 
-  if (fromPage) {
-    docsTextCache = normalizeDocsCacheText(fromPage);
-    return docsTextCache;
+  if (fromPages) {
+    const next = chooseBetterDocsText(fromPages, currentCache);
+    docsTextCache = next;
+    return next;
   }
 
-  return normalizeDocsCacheText(docsTextCache);
+  return currentCache;
+};
+
+export const getGoogleDocsText = (target?: EventTarget | null) => {
+  const visiblePages = getVisibleDocsPages(target);
+  const fromPages = readDocsTextFromPages(visiblePages);
+  const currentCache = normalizeDocsCacheText(docsTextCache);
+
+  if (fromPages) {
+    const next = chooseBetterDocsText(fromPages, currentCache);
+    docsTextCache = next;
+    return next;
+  }
+
+  return currentCache;
 };
 
 export const updateGoogleDocsTextCacheFromKeyboardEvent = (
@@ -39,18 +156,22 @@ export const updateGoogleDocsTextCacheFromKeyboardEvent = (
 ) => {
   const key = event.key;
 
-  if (key === "Backspace") {
-    docsTextCache = docsTextCache.slice(0, -1);
+  if (key === "Backspace" || key === "Delete") {
+    docsTextCache = "";
     return docsTextCache;
   }
 
   if (key === "Enter") {
-    docsTextCache += "\n";
-    docsTextCache = normalizeDocsCacheText(docsTextCache);
+    docsTextCache = "";
     return docsTextCache;
   }
 
-  if (key === "Tab" || key === " ") {
+  if (key === "Tab") {
+    docsTextCache = "";
+    return docsTextCache;
+  }
+
+  if (key === " ") {
     docsTextCache += " ";
     docsTextCache = normalizeDocsCacheText(docsTextCache);
     return docsTextCache;
@@ -63,18 +184,6 @@ export const updateGoogleDocsTextCacheFromKeyboardEvent = (
   }
 
   return docsTextCache;
-};
-
-export const getGoogleDocsText = () => {
-  const activePage = getActiveDocsPage();
-  const fromPage = readDocsTextFromPage(activePage);
-
-  if (fromPage) {
-    docsTextCache = normalizeDocsCacheText(fromPage);
-    return docsTextCache;
-  }
-
-  return normalizeDocsCacheText(docsTextCache);
 };
 
 export const scheduleGoogleDocsTextResync = (target?: EventTarget | null) => {

@@ -2,6 +2,8 @@ import { updateIndicatorPosition } from "../../../ui";
 import { renderSuggestionIndicator } from "../render";
 import {
   clearSuggestion,
+  setIndicatorErrorCount,
+  setIndicatorVisualState,
   setLatestSuggestion,
   setLatestSuggestions,
   setSelectedSuggestionIndex,
@@ -41,6 +43,16 @@ export const syncSuggestionState = (
       setSelectedSuggestionIndex(0);
       setLatestSuggestion(nextSuggestions[0] ?? null);
       setSuggestionPhase("suggesting");
+
+      if (ctx.isLatinInput || ctx.hasSentenceCorrection) {
+        setIndicatorVisualState("latin");
+        setIndicatorErrorCount(0);
+      } else if (ctx.errorWords.length > 0 || ctx.hasSuggestions) {
+        setIndicatorVisualState("error");
+        setIndicatorErrorCount(
+          ctx.errorWords.length > 0 ? ctx.errorWords.length : 1,
+        );
+      }
     } else {
       clearSuggestion();
       setSelectedSuggestionIndex(0);

@@ -1,12 +1,18 @@
 import {
   isDocsStructuralInput,
   isGoogleDocsSite,
+  resetGoogleDocsTextCache,
   setGoogleDocsTextCache,
 } from "../../../dom/google-docs";
 
 export const updateDocsCacheIfNeeded = (text: string) => {
   if (!isGoogleDocsSite()) return;
-  if (!text) return;
+
+  if (!text.trim()) {
+    resetGoogleDocsTextCache();
+    return;
+  }
+
   setGoogleDocsTextCache(text);
 };
 

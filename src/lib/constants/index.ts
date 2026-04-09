@@ -2,7 +2,7 @@ export const INDICATOR_ID = "bolor-ai-indicator";
 
 export const CHECK_TEXT_MESSAGE = "CHECK_TEXT";
 
-export const INPUT_DEBOUNCE_MS = 500;
+export const INPUT_DEBOUNCE_MS = 700;
 export const PASTE_DELAY_MS = 50;
 export const FOCUS_OUT_DELAY_MS = 100;
 

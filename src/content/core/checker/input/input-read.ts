@@ -16,18 +16,27 @@ const readGoogleDocsText = async (
     window.setTimeout(resolve, GOOGLE_DOCS_READ_DELAY_MS),
   );
 
-  if (preferCache) {
-    const cached = getGoogleDocsTextCache().trim();
-    if (cached) return cached;
+  const cached = getGoogleDocsTextCache().trim();
+
+  if (preferCache && cached) {
+    return cached;
   }
 
   const synced = syncGoogleDocsTextCache(editable).trim();
-  if (synced) return synced;
+  if (synced) {
+    return synced;
+  }
 
-  const fresh = getGoogleDocsText().trim();
-  if (fresh) return fresh;
+  if (cached) {
+    return cached;
+  }
 
-  return getGoogleDocsTextCache().trim();
+  const fresh = getGoogleDocsText(editable).trim();
+  if (fresh) {
+    return fresh;
+  }
+
+  return "";
 };
 
 export const readEditableTextAsync = async (

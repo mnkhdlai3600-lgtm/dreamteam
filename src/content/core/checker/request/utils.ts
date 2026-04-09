@@ -24,10 +24,27 @@ export const buildDisplaySuggestions = (
 ) => {
   const trimmedOriginal = original.trim();
   const trimmedCorrected = corrected.trim();
+  const normalizedOriginal = trimmedOriginal.replace(/\s+/g, " ").trim();
+
+  const cleanedSuggestions = uniqueSuggestions(
+    suggestions
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .filter(
+        (item) => item.replace(/\s+/g, " ").trim() !== normalizedOriginal,
+      ),
+  );
 
   if (isLatinInput) {
-    if (trimmedCorrected && trimmedCorrected !== trimmedOriginal) {
+    if (
+      trimmedCorrected &&
+      trimmedCorrected.replace(/\s+/g, " ").trim() !== normalizedOriginal
+    ) {
       return [trimmedCorrected];
+    }
+
+    if (cleanedSuggestions.length > 0) {
+      return cleanedSuggestions;
     }
 
     return [];
@@ -35,15 +52,15 @@ export const buildDisplaySuggestions = (
 
   const result: string[] = [];
 
-  if (trimmedCorrected && trimmedCorrected !== trimmedOriginal) {
+  if (
+    trimmedCorrected &&
+    trimmedCorrected.replace(/\s+/g, " ").trim() !== normalizedOriginal
+  ) {
     result.push(trimmedCorrected);
   }
 
-  for (const suggestion of suggestions) {
-    const value = suggestion.trim();
-    if (!value) continue;
-    if (value === trimmedOriginal) continue;
-    result.push(value);
+  for (const suggestion of cleanedSuggestions) {
+    result.push(suggestion);
   }
 
   return uniqueSuggestions(result);

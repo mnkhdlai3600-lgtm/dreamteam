@@ -93,8 +93,7 @@ chrome.runtime.onMessage.addListener(
       (async () => {
         try {
           const tabId = sender.tab?.id;
-          const rawText = message.payload?.text ?? "";
-          const text = rawText.trim();
+          const rawText = message.payload?.text;
 
           if (!tabId) {
             sendResponse({
@@ -104,7 +103,15 @@ chrome.runtime.onMessage.addListener(
             return;
           }
 
-          if (!text) {
+          if (typeof rawText !== "string") {
+            sendResponse({
+              success: false,
+              error: "Текст буруу байна",
+            });
+            return;
+          }
+
+          if (rawText.length === 0) {
             sendResponse({
               success: false,
               error: "Хоосон текст байна",
@@ -112,10 +119,10 @@ chrome.runtime.onMessage.addListener(
             return;
           }
 
-          const ok = await replaceGoogleDocsTextByDebugger(tabId, text);
+          await replaceGoogleDocsTextByDebugger(tabId, rawText);
 
           sendResponse({
-            success: ok,
+            success: true,
           });
         } catch (error) {
           console.error("DOCS_DEBUGGER_REPLACE error:", error);

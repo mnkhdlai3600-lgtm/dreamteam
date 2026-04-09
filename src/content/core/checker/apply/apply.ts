@@ -30,8 +30,10 @@ import {
   setLastCheckedText,
   setLastCheckWasLatin,
   setLatestSuggestion,
+  setPauseDocsSuggestionUntilInput,
   setShouldAutoAdvanceError,
   setSuggestionPhase,
+  setDocsFrozenBaseText,
 } from "../../state";
 import { shouldSkipApplySuggestion } from "../../guard";
 import { getHighlightedErrors } from "../../error-state";
@@ -131,11 +133,16 @@ export const applySuggestion = async () => {
     setIsSuggestionLoading(false);
 
     setLastAppliedText(nextText);
-    setLastCheckedText(nextText.trim());
+    setLastCheckedText(docsSite ? "" : nextText.trim());
     setLastCheckWasLatin(hasLatinText(nextText));
     setShouldAutoAdvanceError(!isLatinInput && !docsSite);
 
     if (docsSite) {
+      console.log("[docs-apply] freeze-base", {
+        nextText,
+      });
+      setPauseDocsSuggestionUntilInput(true);
+      setDocsFrozenBaseText(nextText);
       syncDocsStateAfterApply(resolved, nextText);
     }
 
@@ -144,9 +151,11 @@ export const applySuggestion = async () => {
     renderSuggestionIndicator();
     updateIndicatorPosition(resolved);
 
-    window.setTimeout(() => {
-      void checkText(nextText);
-    }, 250);
+    if (!docsSite) {
+      window.setTimeout(() => {
+        void checkText(nextText);
+      }, 250);
+    }
   } finally {
     window.setTimeout(() => setIsApplyingSuggestion(false), APPLY_RESET_MS);
     window.setTimeout(() => setIsApplyingHotkey(false), APPLY_GUARD_MS);

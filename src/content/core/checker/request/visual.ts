@@ -29,11 +29,11 @@ import type { HighlightErrorItem } from "../../error-state";
 
 const getLiveText = (editable: HTMLElement) => {
   if (isGoogleDocsSite()) {
-    const synced = syncGoogleDocsTextCache(editable).trim();
-    if (synced) return synced;
-
     const cached = getGoogleDocsTextCache().trim();
     if (cached) return cached;
+
+    const synced = syncGoogleDocsTextCache(editable).trim();
+    if (synced) return synced;
 
     return getGoogleDocsText().trim();
   }

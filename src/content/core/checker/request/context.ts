@@ -46,11 +46,24 @@ export const buildCheckContext = (
   const rawErrorWords = parseErrorWords(data.errorWords, trimmed);
   const { latinCount, cyrillicCount } = getScriptStats(trimmed);
 
+  const hasLatin = latinCount > 0;
+  const hasCyrillic = cyrillicCount > 0;
   const mostlyLatin = isMostlyLatinText(trimmed);
-  const pureLatin = latinCount > 0 && cyrillicCount === 0;
+  const pureLatin = hasLatin && !hasCyrillic;
+
+  const hasLatinCorrection =
+    !!corrected &&
+    corrected !== trimmed &&
+    /[А-ЯӨҮЁа-яөүё]/.test(corrected) &&
+    hasLatin;
+
+  const hasLatinSuggestions = suggestions.length > 0 && hasLatin;
 
   const shouldTreatAsLatin =
-    pureLatin || (mostlyLatin && rawErrorWords.length === 0);
+    pureLatin ||
+    hasLatinCorrection ||
+    hasLatinSuggestions ||
+    (mostlyLatin && rawErrorWords.length === 0);
 
   const errorWords = shouldTreatAsLatin ? [] : rawErrorWords;
 

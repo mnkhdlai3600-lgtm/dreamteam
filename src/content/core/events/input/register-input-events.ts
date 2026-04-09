@@ -11,11 +11,6 @@ const ensureDocsIframeListeners = () => {
 
   const iframeDoc = getGoogleDocsIframeDocument();
 
-  console.log("[болор][input-ensure-iframe]", {
-    hasIframeDoc: !!iframeDoc,
-    iframeDoc,
-  });
-
   if (!iframeDoc) return;
   bindInputListener(iframeDoc, "docs-iframe");
 };

@@ -1,5 +1,10 @@
 import { updateIndicatorPosition } from "../../../ui";
 import { getElementText } from "../../../dom";
+import {
+  isGoogleDocsSite,
+  resetGoogleDocsTextCache,
+  syncGoogleDocsTextCache,
+} from "../../../dom/google-docs";
 import { shouldSkipHandleInput } from "../../guard";
 import {
   activeElement,
@@ -20,22 +25,40 @@ import { checkText } from "../../checker/request/request";
 import { renderSuggestionIndicator } from "../../checker/render";
 import { INPUT_DEBOUNCE_MS } from "../../../../lib/constants";
 
+const getInputText = (target: HTMLElement) => {
+  if (isGoogleDocsSite()) {
+    return syncGoogleDocsTextCache(target).trim();
+  }
+
+  return getElementText(target).trim();
+};
+
+const resetDocsCacheIfNeeded = () => {
+  if (!isGoogleDocsSite()) return;
+  resetGoogleDocsTextCache();
+};
+
+const renderIdleState = (target: HTMLElement) => {
+  clearSuggestion();
+  setLastAppliedText(null);
+  setLastCheckedText("");
+  setSuggestionPhase("idle");
+  setIndicatorVisualState("idle");
+  setIndicatorErrorCount(0);
+  void renderSuggestionIndicator();
+  updateIndicatorPosition(target);
+};
+
 export const handleInput = () => {
   if (shouldSkipHandleInput() || !activeElement) return;
 
   updateIndicatorPosition(activeElement);
 
-  const text = getElementText(activeElement).trim();
+  const text = getInputText(activeElement);
 
   if (!text) {
-    clearSuggestion();
-    setLastAppliedText(null);
-    setLastCheckedText("");
-    setSuggestionPhase("idle");
-    setIndicatorVisualState("idle");
-    setIndicatorErrorCount(0);
-    void renderSuggestionIndicator();
-    updateIndicatorPosition(activeElement);
+    resetDocsCacheIfNeeded();
+    renderIdleState(activeElement);
     return;
   }
 
@@ -59,17 +82,11 @@ export const handleInput = () => {
 
       updateIndicatorPosition(activeElement);
 
-      const latestText = getElementText(activeElement).trim();
+      const latestText = getInputText(activeElement);
 
       if (!latestText) {
-        clearSuggestion();
-        setLastAppliedText(null);
-        setLastCheckedText("");
-        setSuggestionPhase("idle");
-        setIndicatorVisualState("idle");
-        setIndicatorErrorCount(0);
-        void renderSuggestionIndicator();
-        updateIndicatorPosition(activeElement);
+        resetDocsCacheIfNeeded();
+        renderIdleState(activeElement);
         return;
       }
 
@@ -93,10 +110,11 @@ export const handleInput = () => {
 
         if (!activeElement) return;
 
-        const currentText = getElementText(activeElement).trim();
+        const currentText = getInputText(activeElement);
 
         if (currentText !== latestText) {
           if (!currentText) {
+            resetDocsCacheIfNeeded();
             clearSuggestion();
             setSuggestionPhase("idle");
             setIndicatorVisualState("idle");

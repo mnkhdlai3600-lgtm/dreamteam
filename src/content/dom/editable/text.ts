@@ -1,4 +1,4 @@
-import { getGoogleDocsText, isGoogleDocsSite } from "../google-docs";
+import { getGoogleDocsTextCache, isGoogleDocsSite } from "../google-docs";
 import { isContentEditableLike } from "./guards";
 
 export const normalizeText = (text: string) =>
@@ -27,7 +27,7 @@ export const getElementText = (el: HTMLElement) => {
   }
 
   if (isGoogleDocsSite()) {
-    const docsText = getGoogleDocsText();
+    const docsText = getGoogleDocsTextCache();
     if (docsText) return normalizeLiveText(docsText);
   }
 
