@@ -1,6 +1,8 @@
+// src/content/ui/indicator/indicator-anchor.ts
+
 import {
-  getCaretClientRect,
   getSelectionClientRect,
+  getTextEndClientRect,
 } from "../../dom/caret/caret";
 import {
   getGoogleDocsCursorRect,
@@ -101,14 +103,9 @@ export const getTextEndAnchorRect = (target: HTMLElement): DOMRect => {
     return getFallbackAnchorRect(target);
   }
 
-  const caretRect = getCaretClientRect(target);
-  if (isVisibleViewportRect(caretRect)) {
-    return caretRect;
-  }
-
-  const selectionRect = getSelectionClientRect(target);
-  if (isVisibleViewportRect(selectionRect)) {
-    return selectionRect;
+  const textEndRect = getTextEndClientRect(target);
+  if (isVisibleViewportRect(textEndRect)) {
+    return textEndRect;
   }
 
   return getFallbackAnchorRect(target);

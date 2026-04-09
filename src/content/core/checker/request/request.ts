@@ -1,3 +1,5 @@
+// src/content/core/checker/request/request.ts
+
 import { removeIndicator, updateIndicatorPosition } from "../../../ui";
 import { sendCheckTextMessage } from "../../../../lib/chrome";
 import {
@@ -32,8 +34,10 @@ import { clearHighlightedErrors } from "../../error-state";
 import { buildCheckContext } from "./context";
 import { applyVisualState } from "./visual";
 import { syncSuggestionState } from "./suggestions";
+import { getCheckTargetText } from "../apply/apply-utils";
 import type { CheckResponseData } from "./types";
 
+<<<<<<< HEAD
 const DOCS_REQUEST_LOG = "[docs-request-debug]";
 const LATIN_RE = /[A-Za-z]/;
 const CLAUSE_BREAK_RE = /([.?!]\s+|[,;:]\s+|\n+)/g;
@@ -53,6 +57,10 @@ const logDocsRequest = (
   payload: Record<string, unknown> = {},
 ) => {
   console.log(`${DOCS_REQUEST_LOG} ${label}`, payload);
+=======
+type CheckTextOptions = {
+  useFullText?: boolean;
+>>>>>>> temp-fix
 };
 
 const normalizeCompareText = (value: string) =>
@@ -264,8 +272,12 @@ const isDocsTextCloseEnough = (currentText: string, checkedText: string) => {
   return current.includes(checked) || checked.includes(current);
 };
 
-export const checkText = async (text: string) => {
+export const checkText = async (
+  text: string,
+  options: CheckTextOptions = {},
+) => {
   const trimmed = text.trim();
+<<<<<<< HEAD
   const docsSite = isGoogleDocsSite();
   const scoped = getScopedPayload(trimmed);
   const requestText = scoped.requestText.trim();
@@ -282,6 +294,21 @@ export const checkText = async (text: string) => {
 
   if (!requestText) {
     logDocsRequest("check:skip-empty-request");
+=======
+  const targetText = options.useFullText
+    ? trimmed
+    : getCheckTargetText(trimmed);
+  const lastAppliedTarget = options.useFullText
+    ? (lastAppliedText ?? "").trim()
+    : getCheckTargetText(lastAppliedText ?? "");
+  const justApplied = !!lastAppliedTarget && targetText === lastAppliedTarget;
+  console.log("[болор][request-check]", {
+    useFullText: options.useFullText ?? false,
+    trimmed,
+    targetText,
+  });
+  if (!trimmed || !targetText) {
+>>>>>>> temp-fix
     clearSuggestion();
     clearHighlightedErrors();
     setShouldAutoAdvanceError(false);
@@ -310,8 +337,18 @@ export const checkText = async (text: string) => {
   }
 
   try {
+<<<<<<< HEAD
     const response = await sendCheckTextMessage(requestText);
 
+=======
+    const response = await sendCheckTextMessage(targetText);
+    console.log("[болор][request-response]", {
+      targetText,
+      corrected: response?.data?.corrected,
+      suggestions: response?.data?.suggestions,
+      errorWords: response?.data?.errorWords,
+    });
+>>>>>>> temp-fix
     if (!response?.success || !response.data) {
       throw new Error(response?.error || "Шалгалт амжилтгүй");
     }
@@ -322,6 +359,9 @@ export const checkText = async (text: string) => {
     setActiveElement(currentEditable);
 
     const currentText = getCurrentComparableText(currentEditable);
+    const currentTargetText = options.useFullText
+      ? currentText.trim()
+      : getCheckTargetText(currentText);
 
     logDocsRequest("check:after-response", {
       requestText: previewText(requestText),
@@ -343,6 +383,7 @@ export const checkText = async (text: string) => {
       return;
     }
 
+<<<<<<< HEAD
     if (!docsSite) {
       const normalizedCurrent = normalizeCompareText(currentText);
       const normalizedRequest = normalizeCompareText(requestText);
@@ -378,13 +419,32 @@ export const checkText = async (text: string) => {
             checkedLen,
             lengthGap,
           });
+=======
+    if (!isGoogleDocsSite() && currentTargetText !== targetText) {
+      return;
+    }
+
+    if (isGoogleDocsSite() && currentTargetText) {
+      const sameEnough = isDocsTextCloseEnough(currentTargetText, targetText);
+
+      if (!sameEnough) {
+        const currentLen = normalizeCompareText(currentTargetText).length;
+        const checkedLen = normalizeCompareText(targetText).length;
+        const lengthGap = Math.abs(currentLen - checkedLen);
+
+        if (lengthGap > 120) {
+>>>>>>> temp-fix
           return;
         }
       }
     }
 
     const ctx = buildCheckContext(
+<<<<<<< HEAD
       requestText,
+=======
+      targetText,
+>>>>>>> temp-fix
       response.data as CheckResponseData,
       justApplied,
     );
@@ -408,6 +468,7 @@ export const checkText = async (text: string) => {
 
     const { autoAdvanceHandled } = await applyVisualState(currentEditable, ctx);
 
+<<<<<<< HEAD
     syncSuggestionState(currentEditable, ctx, autoAdvanceHandled);
     setLastCheckedText(docsSite ? currentText : requestText);
 
@@ -419,6 +480,16 @@ export const checkText = async (text: string) => {
       error: error instanceof Error ? error.message : String(error),
     });
 
+=======
+    syncSuggestionState(
+      currentEditable,
+      ctx,
+      autoAdvanceHandled,
+      options.useFullText ?? false,
+    );
+    setLastCheckedText(targetText);
+  } catch {
+>>>>>>> temp-fix
     clearSuggestion();
     clearHighlightedErrors();
     resetIndicatorVisualState();

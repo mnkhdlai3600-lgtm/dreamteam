@@ -21,8 +21,11 @@ export const refreshSuggestionDropdownHighlight = async () => {
 
   items.forEach((item, index) => {
     const isActive = index === selectedSuggestionIndex;
+
     item.style.background = isActive ? styles.itemSelected : "transparent";
     item.style.borderColor = isActive ? styles.itemBorderActive : "transparent";
+    item.style.transform = isActive ? "translateY(-1px)" : "translateY(0)";
+    item.style.boxShadow = isActive ? styles.focusRing : "none";
 
     if (isActive) {
       item.scrollIntoView({ block: "nearest" });

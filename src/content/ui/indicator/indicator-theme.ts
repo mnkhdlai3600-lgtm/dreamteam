@@ -10,7 +10,7 @@ const getSystemResolvedTheme = (): ResolvedTheme => {
     : "light";
 };
 
-const getSavedThemeMode = async (): Promise<string> => {
+const getSavedThemeMode = async (): Promise<"light" | "dark" | "system"> => {
   return new Promise((resolve) => {
     if (!chrome?.storage?.sync) {
       resolve("system");
@@ -52,51 +52,62 @@ export const getDotStylesByTheme = (theme: ResolvedTheme) => {
   if (theme === "dark") {
     return {
       background: "#ffffff",
-      border: "2px solid rgba(17, 24, 39, 0.18)",
-      shadowIdle: "0 4px 12px rgba(255,255,255,0.18)",
+      border: "2px solid rgba(15, 23, 42, 0.18)",
+      shadowIdle: "0 10px 18px rgba(255,255,255,0.14)",
       shadowLoading:
-        "0 0 0 0 rgba(255,255,255,0.24), 0 4px 14px rgba(255,255,255,0.22)",
-      idleOpacityMin: 0.55,
-      idleOpacityMax: 1,
+        "0 0 0 0 rgba(255,255,255,0.20), 0 10px 24px rgba(255,255,255,0.18)",
+      idleOpacityMin: 0.56,
+      idleOpacityMax: 0.98,
     };
   }
 
   return {
     background: "#4b5563",
-    border: "2px solid rgba(255,255,255,0.92)",
-    shadowIdle: "0 4px 12px rgba(0,0,0,0.18)",
-    shadowLoading: "0 0 0 0 rgba(75,85,99,0.22), 0 4px 14px rgba(0,0,0,0.20)",
-    idleOpacityMin: 0.45,
-    idleOpacityMax: 0.82,
+    border: "2px solid rgba(255,255,255,0.96)",
+    shadowIdle: "0 10px 18px rgba(15,23,42,0.16)",
+    shadowLoading:
+      "0 0 0 0 rgba(75,85,99,0.18), 0 10px 24px rgba(15,23,42,0.18)",
+    idleOpacityMin: 0.46,
+    idleOpacityMax: 0.84,
   };
 };
 
 export const getSurfaceStylesByTheme = (theme: ResolvedTheme) => {
   if (theme === "dark") {
     return {
-      panelBackground: "rgba(28, 28, 32, 0.96)",
-      panelText: "#ffffff",
+      panelBackground: "rgba(22, 24, 29, 0.94)",
+      panelText: "#f8fafc",
       panelBorder: "1px solid rgba(255,255,255,0.08)",
       itemHover: "rgba(255,255,255,0.08)",
-      itemSelected: "rgba(255,255,255,0.14)",
-      subtleText: "rgba(255,255,255,0.65)",
+      itemSelected: "rgba(255,255,255,0.13)",
+      subtleText: "rgba(241,245,249,0.68)",
       itemBorderActive: "rgba(255,255,255,0.18)",
       spinnerTrack: "rgba(255,255,255,0.22)",
       spinnerHead: "#ffffff",
-      shadow: "0 12px 28px rgba(0,0,0,0.28)",
+      shadow: "0 16px 40px rgba(0,0,0,0.30)",
+      shadowStrong: "0 22px 54px rgba(0,0,0,0.36)",
+      buttonBackground: "rgba(255,255,255,0.12)",
+      buttonHover: "rgba(255,255,255,0.18)",
+      buttonText: "#ffffff",
+      focusRing: "0 0 0 4px rgba(255,255,255,0.06)",
     };
   }
 
   return {
-    panelBackground: "rgba(255, 255, 255, 0.96)",
-    panelText: "#111827",
-    panelBorder: "1px solid rgba(17,24,39,0.08)",
-    itemHover: "rgba(17,24,39,0.05)",
-    itemSelected: "rgba(17,24,39,0.09)",
-    subtleText: "rgba(17,24,39,0.58)",
-    itemBorderActive: "rgba(17,24,39,0.12)",
-    spinnerTrack: "rgba(17,24,39,0.16)",
-    spinnerHead: "#374151",
-    shadow: "0 12px 28px rgba(0,0,0,0.14)",
+    panelBackground: "rgba(255, 255, 255, 0.94)",
+    panelText: "#0f172a",
+    panelBorder: "1px solid rgba(15,23,42,0.08)",
+    itemHover: "rgba(15,23,42,0.05)",
+    itemSelected: "rgba(15,23,42,0.08)",
+    subtleText: "rgba(15,23,42,0.58)",
+    itemBorderActive: "rgba(15,23,42,0.12)",
+    spinnerTrack: "rgba(15,23,42,0.14)",
+    spinnerHead: "#334155",
+    shadow: "0 16px 40px rgba(15,23,42,0.12)",
+    shadowStrong: "0 22px 54px rgba(15,23,42,0.16)",
+    buttonBackground: "rgba(15,23,42,0.08)",
+    buttonHover: "rgba(15,23,42,0.12)",
+    buttonText: "#0f172a",
+    focusRing: "0 0 0 4px rgba(15,23,42,0.05)",
   };
 };

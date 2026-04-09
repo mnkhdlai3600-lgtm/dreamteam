@@ -75,6 +75,12 @@ export const selectSuggestionByIndex = (index: number) => {
   latestSuggestion = latestSuggestions[safeIndex] ?? null;
 };
 
+export let shouldApplyFullTextSuggestion = false;
+
+export const setShouldApplyFullTextSuggestion = (value: boolean) => {
+  shouldApplyFullTextSuggestion = value;
+};
+
 export const clearSuggestion = () => {
   latestSuggestion = null;
   latestSuggestions = [];
@@ -82,6 +88,7 @@ export const clearSuggestion = () => {
   isSuggestionMenuOpen = false;
   isSuggestionLoading = false;
   suggestionPhase = "idle";
+  shouldApplyFullTextSuggestion = false;
 };
 
 export const setIsApplyingSuggestion = (value: boolean) => {

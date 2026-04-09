@@ -5,7 +5,8 @@ import {
   replaceRangeInContentEditable,
   setElementText,
 } from "../../../dom";
-import { selectedErrorRange } from "../../state";
+import { selectedErrorRange, shouldApplyFullTextSuggestion } from "../../state";
+import { replaceActiveSentenceText } from "./apply-utils";
 
 export const applySuggestionToContentEditable = async (
   resolved: HTMLElement,
@@ -15,11 +16,15 @@ export const applySuggestionToContentEditable = async (
   targetWord?: string,
 ) => {
   if (isLatinInput) {
-    const ok = await setElementText(resolved, suggestion);
+    const currentText = getElementText(resolved).trim();
+    const nextText = shouldApplyFullTextSuggestion
+      ? suggestion
+      : replaceActiveSentenceText(currentText, suggestion);
+    const ok = await setElementText(resolved, nextText);
 
     return {
       ok,
-      nextText: suggestion,
+      nextText,
     };
   }
 

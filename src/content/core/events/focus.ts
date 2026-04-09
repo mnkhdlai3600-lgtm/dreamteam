@@ -8,12 +8,17 @@ import {
   isGoogleDocsSite,
   resolveGoogleDocsActiveEditable,
 } from "../../dom/google-docs";
+import { updateIndicatorPosition } from "../../ui";
 import {
   createIndicator,
   removeIndicator,
 } from "../../ui/indicator/indicator-render";
+import { renderSuggestionIndicator } from "../checker/render";
 import {
-  clearSuggestion,
+  hidePersistedSuggestion,
+  restorePersistedSuggestionForElement,
+} from "../checker/persist";
+import {
   getLastEditableElement,
   indicatorErrorCount,
   indicatorVisualState,
@@ -86,6 +91,18 @@ export const registerFocusEvents = () => {
 
       setActiveElement(target);
 
+      hidePersistedSuggestion();
+      renderSuggestionIndicator();
+
+      const restored = restorePersistedSuggestionForElement(target);
+
+      if (restored) {
+        void createIndicator(target, "", { state: "latin" });
+        renderSuggestionIndicator();
+        updateIndicatorPosition(target);
+        return;
+      }
+
       const isNavigationFocus = Date.now() < suppressInputUntil;
 
       if (isNavigationFocus) {
@@ -114,6 +131,9 @@ export const registerFocusEvents = () => {
         const isNavigationFocus = Date.now() < suppressInputUntil;
         if (isNavigationFocus) return;
 
+        hidePersistedSuggestion();
+        renderSuggestionIndicator();
+
         if (isGoogleDocsSite()) {
           const docsEditable = resolveDocsEditable();
           if (docsEditable) {
@@ -141,7 +161,6 @@ export const registerFocusEvents = () => {
         if (editable) return;
 
         setActiveElement(null);
-        clearSuggestion();
         removeIndicator();
       }, 100);
     },

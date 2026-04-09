@@ -22,11 +22,6 @@ const postPlainText = async (endpoint: string, text: string) => {
 
   const rawText = await response.text();
 
-  console.log("BOLOR ENDPOINT:", endpoint);
-  console.log("BOLOR INPUT:", text);
-  console.log("BOLOR STATUS:", response.status);
-  console.log("BOLOR RAW:", rawText);
-
   if (!response.ok) {
     throw new Error(`Bolor error ${response.status}: ${rawText}`);
   }

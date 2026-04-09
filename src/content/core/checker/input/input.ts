@@ -1,3 +1,5 @@
+// src/content/core/checker/input/input.ts
+
 import { removeIndicator, updateIndicatorPosition } from "../../../ui";
 import { resolveActiveEditable } from "../../../dom";
 import {
@@ -40,6 +42,31 @@ import {
   updateDocsCacheIfNeeded,
 } from "../input/input-cache";
 import { readEditableTextAsync } from "../input/input-read";
+import {
+  getRecentPasteLikeInputType,
+  wasRecentPasteLikeInput,
+} from "../../events/input/bind";
+
+const shouldUseFullTextCheck = (event?: Event) => {
+  const inputType =
+    event &&
+    "inputType" in event &&
+    typeof (event as InputEvent).inputType === "string"
+      ? (event as InputEvent).inputType
+      : "";
+
+  if (
+    inputType === "insertFromPaste" ||
+    inputType === "insertFromDrop" ||
+    inputType === "insertFromYank" ||
+    inputType === "historyUndo" ||
+    inputType === "historyRedo"
+  ) {
+    return true;
+  }
+
+  return wasRecentPasteLikeInput();
+};
 
 export const handleInput = (event?: Event) => {
   if (shouldSkipHandleInput()) return;
@@ -47,8 +74,17 @@ export const handleInput = (event?: Event) => {
   const currentEditable = resolveActiveEditable() ?? activeElement;
   if (!currentEditable) return;
 
+<<<<<<< HEAD
   const docsSite = isGoogleDocsSite();
   const preferCache = docsSite ? true : shouldPreferDocsCache(event);
+=======
+  const preferCache = shouldPreferDocsCache(event);
+  const useFullTextCheck = shouldUseFullTextCheck(event);
+
+  if (isGoogleDocsSite() && !preferCache) {
+    scheduleGoogleDocsTextResync(currentEditable);
+  }
+>>>>>>> temp-fix
 
   setActiveElement(currentEditable);
   updateIndicatorPosition(currentEditable);
@@ -169,11 +205,28 @@ export const handleInput = (event?: Event) => {
           renderSuggestionIndicator();
           updateIndicatorPosition(latestEditable);
 
+<<<<<<< HEAD
           console.log("[docs-debug] call-checkText", { latestText });
 
           void checkText(latestText).finally(async () => {
             if (!isLatestRequest(requestId)) return;
 
+=======
+          console.log("[болор][input-check]", {
+            eventType: event?.type,
+            inputType:
+              event && "inputType" in event
+                ? (event as InputEvent).inputType
+                : "",
+            recentPasteLikeInputType: getRecentPasteLikeInputType(),
+            useFullTextCheck,
+            latestText,
+          });
+
+          void checkText(latestText, {
+            useFullText: useFullTextCheck,
+          }).finally(async () => {
+>>>>>>> temp-fix
             const liveEditable = resolveActiveEditable() ?? activeElement;
             if (!liveEditable) {
               removeIndicator();

@@ -1,5 +1,33 @@
-#bolor-ai-indicator {
-  font-family: Arial, sans-serif;
+#bolor-ai-indicator,
+#bolor-ai-suggestion-dropdown {
+  font-family: Inter, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#bolor-ai-suggestion-dropdown {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.38) transparent;
+}
+
+#bolor-ai-suggestion-dropdown::-webkit-scrollbar {
+  width: 10px;
+}
+
+#bolor-ai-suggestion-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#bolor-ai-suggestion-dropdown::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.34);
+  background-clip: padding-box;
+}
+
+#bolor-ai-suggestion-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.52);
+  background-clip: padding-box;
 }
 
 .bolor-error {
@@ -12,16 +40,18 @@
   text-decoration-color: rgba(255, 59, 48, 0.95);
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
-  animation: bolor-error-pulse 1s ease-in-out infinite;
+  animation: bolor-error-pulse 1.3s ease-in-out infinite;
   transition:
     background-color 160ms ease,
     transform 160ms ease,
-    text-decoration-color 160ms ease;
+    text-decoration-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .bolor-error:hover {
   background-color: rgba(255, 59, 48, 0.08);
   text-decoration-color: rgba(255, 59, 48, 1);
+  box-shadow: inset 0 -2px 0 rgba(255, 59, 48, 0.12);
 }
 
 .bolor-corrected {
@@ -65,5 +95,15 @@
     background-color: rgba(34, 197, 94, 0);
     text-decoration-color: rgba(34, 197, 94, 0.35);
     opacity: 0.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bolor-error,
+  .bolor-corrected,
+  #bolor-ai-indicator,
+  #bolor-ai-suggestion-dropdown {
+    animation: none !important;
+    transition: none !important;
   }
 }

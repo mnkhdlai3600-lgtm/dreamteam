@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import {
   lastAppliedText,
   lastCheckedText,
@@ -21,6 +22,10 @@ const setCaretToEnd = (
   const nextCaret = value.length;
   element.setSelectionRange(nextCaret, nextCaret);
 };
+=======
+import { selectedErrorRange, shouldApplyFullTextSuggestion } from "../../state";
+import { replaceActiveSentenceText } from "./apply-utils";
+>>>>>>> temp-fix
 
 export const replaceSelectedRangeInInput = (
   element: HTMLInputElement | HTMLTextAreaElement,
@@ -123,8 +128,23 @@ export const applySuggestionToInput = (
   }
 
   if (isLatinInput) {
+<<<<<<< HEAD
     const nextText = replaceLastScopedTextInInput(element, suggestion);
     return { ok: true, nextText };
+=======
+    const currentValue = element.value;
+    const nextText = shouldApplyFullTextSuggestion
+      ? suggestion
+      : replaceActiveSentenceText(currentValue, suggestion);
+
+    element.value = nextText;
+    element.setSelectionRange(nextText.length, nextText.length);
+
+    return {
+      ok: true,
+      nextText,
+    };
+>>>>>>> temp-fix
   }
 
   element.value = suggestion;

@@ -101,20 +101,7 @@ const replaceAllGoogleDocsText = (root: HTMLElement, value: string) => {
 
   const inserted = execInsertText(docsTarget, value);
   if (!inserted) return false;
-  console.log("[болор][docs-replace]", {
-    root,
-    docsTarget,
-    value,
-  });
 
-  console.log("[болор][docs-replace-result]", {
-    selected,
-    inserted,
-    afterText:
-      docsTarget instanceof HTMLElement
-        ? docsTarget.innerText || docsTarget.textContent || ""
-        : "",
-  });
   setGoogleDocsTextCache(value);
 
   window.setTimeout(() => {
@@ -149,6 +136,17 @@ export const normalizeComparableText = (value: string) =>
     .replace(/\u200B/g, "")
     .trim();
 
+const replaceAllEditableTextByDom = (root: HTMLElement, value: string) => {
+  while (root.firstChild) {
+    root.removeChild(root.firstChild);
+  }
+
+  root.appendChild(createFragmentFromText(value));
+  placeCursorAtEnd(root);
+  dispatchSyntheticInput(root, "insertReplacementText", value);
+  return verifyElementText(root, value);
+};
+
 export const replaceSelectedTextWithCommand = (
   root: HTMLElement,
   value: string,
@@ -165,19 +163,29 @@ export const replaceAllEditableText = (root: HTMLElement, value: string) => {
   root.focus();
 
   const selected = execSelectAllForDefaultEditable(root);
-  if (!selected) return false;
+  if (!selected) {
+    return replaceAllEditableTextByDom(root, value);
+  }
 
-  if (replaceSelectedTextWithCommand(root, value)) {
+  const commandOk = replaceSelectedTextWithCommand(root, value);
+
+  if (commandOk) {
     placeCursorAtEnd(root);
-    return verifyElementText(root, value);
+
+    const verified = verifyElementText(root, value);
+    if (verified) {
+      return true;
+    }
+
+    console.log("[болор][replace-fallback-after-command]", {
+      root,
+      value,
+      current:
+        root instanceof HTMLElement
+          ? root.innerText || root.textContent || ""
+          : "",
+    });
   }
 
-  while (root.firstChild) {
-    root.removeChild(root.firstChild);
-  }
-
-  root.appendChild(createFragmentFromText(value));
-  placeCursorAtEnd(root);
-  dispatchSyntheticInput(root, "insertReplacementText", value);
-  return verifyElementText(root, value);
+  return replaceAllEditableTextByDom(root, value);
 };
