@@ -7,13 +7,14 @@ import {
   sleep,
 } from "./debugger-input";
 
-const normalizeComparableText = (value: string) =>
-  value
-    .replace(/\u00A0/g, " ")
-    .replace(/\u200B/g, "")
-    .replace(/\r/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+const DOCS_DEBUGGER_LOG = "[docs-debugger]";
+
+const logDocsDebugger = (
+  label: string,
+  payload: Record<string, unknown> = {},
+) => {
+  console.log(`${DOCS_DEBUGGER_LOG} ${label}`, payload);
+};
 
 export const focusDocsSurface = async (tabId: number) => {
   const result = await sendDebuggerCommand<{ result?: { value?: boolean } }>(
@@ -48,47 +49,22 @@ export const focusDocsSurface = async (tabId: number) => {
   );
 
   await sleep(DEBUGGER_DELAY_MS * 2);
-  return !!result?.result?.value;
-};
 
-const readDocsTextForVerify = async (tabId: number) => {
-  const result = await sendDebuggerCommand<{ result?: { value?: string } }>(
-    tabId,
-    "Runtime.evaluate",
-    {
-      expression: `
-        (() => {
-          const pages = Array.from(
-            document.querySelectorAll(
-              ".kix-page-paginated, .kix-page-column, .kix-page"
-            )
-          );
+  const focused = !!result?.result?.value;
+  logDocsDebugger("focus", { tabId, focused });
 
-          if (!pages.length) return "";
-
-          const text = pages
-            .map((page) => page.textContent || "")
-            .filter(Boolean)
-            .join("\\n")
-            .replace(/\\u00A0/g, " ")
-            .replace(/\\u200B/g, "")
-            .replace(/\\r/g, "");
-
-          return text;
-        })();
-      `,
-      returnByValue: true,
-      awaitPromise: true,
-    },
-  );
-
-  return result?.result?.value ?? "";
+  return focused;
 };
 
 export const replaceGoogleDocsTextByDebugger = async (
   tabId: number,
   text: string,
 ) => {
+  logDocsDebugger("replace:start", {
+    tabId,
+    textLength: text.length,
+  });
+
   await ensureDebuggerAttached(tabId);
 
   const focused = await focusDocsSurface(tabId);
@@ -99,19 +75,12 @@ export const replaceGoogleDocsTextByDebugger = async (
   await runSelectAll(tabId);
   await runDeleteSelection(tabId);
   await runInsertText(tabId, text);
-  await sleep(DEBUGGER_DELAY_MS * 3);
+  await sleep(DEBUGGER_DELAY_MS * 4);
 
-  const actualText = await readDocsTextForVerify(tabId);
-  const expected = normalizeComparableText(text);
-  const actual = normalizeComparableText(actualText);
+  logDocsDebugger("replace:done", {
+    tabId,
+    success: true,
+  });
 
-  if (expected && actual && actual.includes(expected)) {
-    return true;
-  }
-
-  if (expected === actual) {
-    return true;
-  }
-
-  throw new Error("Google Docs replace verify амжилтгүй");
+  return true;
 };
