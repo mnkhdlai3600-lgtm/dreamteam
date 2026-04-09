@@ -2,8 +2,8 @@
 
 import { shouldAutoAdvanceError } from "../../state";
 import { parseErrorWords } from "./errors";
-import { buildDisplaySuggestions, uniqueSuggestions } from "./utils";
 import type { CheckContext, CheckResponseData } from "./types";
+import { buildDisplaySuggestions, uniqueSuggestions } from "./utils";
 
 const LATIN_RE = /[A-Za-z]/g;
 const CYRILLIC_RE = /[А-ЯӨҮЁа-яөүё]/g;
@@ -32,14 +32,14 @@ const parseSuggestions = (value: unknown) => {
   if (!Array.isArray(value)) return [];
 
   return uniqueSuggestions(
-    value.filter((item: unknown): item is string => typeof item === "string"),
+    value.filter((item: unknown): item is string => typeof item === "string")
   );
 };
 
 export const buildCheckContext = (
   trimmed: string,
   data: CheckResponseData,
-  justApplied: boolean,
+  justApplied: boolean
 ): CheckContext => {
   const corrected =
     typeof data.corrected === "string" ? data.corrected.trim() : "";
@@ -48,17 +48,15 @@ export const buildCheckContext = (
   const rawErrorWords = parseErrorWords(data.errorWords, trimmed);
   const { latinCount, cyrillicCount } = getScriptStats(trimmed);
 
-<<<<<<< HEAD
   const hasLatin = latinCount > 0;
   const hasCyrillic = cyrillicCount > 0;
-=======
+
   const mode =
     typeof (data as { mode?: unknown }).mode === "string"
-      ? ((data as { mode?: string }).mode ?? "")
+      ? (data as { mode?: string }).mode ?? ""
       : "";
 
   const isOpenAIGalig = mode === "openai-galig";
->>>>>>> temp-fix
   const mostlyLatin = isMostlyLatinText(trimmed);
   const pureLatin = hasLatin && !hasCyrillic;
 
@@ -71,14 +69,11 @@ export const buildCheckContext = (
   const hasLatinSuggestions = suggestions.length > 0 && hasLatin;
 
   const shouldTreatAsLatin =
-<<<<<<< HEAD
+    isOpenAIGalig ||
     pureLatin ||
     hasLatinCorrection ||
     hasLatinSuggestions ||
     (mostlyLatin && rawErrorWords.length === 0);
-=======
-    isOpenAIGalig || pureLatin || (mostlyLatin && rawErrorWords.length === 0);
->>>>>>> temp-fix
 
   const errorWords = shouldTreatAsLatin ? [] : rawErrorWords;
 
@@ -86,7 +81,7 @@ export const buildCheckContext = (
     trimmed,
     corrected,
     suggestions,
-    shouldTreatAsLatin,
+    shouldTreatAsLatin
   );
 
   return {

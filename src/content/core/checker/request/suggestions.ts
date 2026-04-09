@@ -1,6 +1,4 @@
 import { updateIndicatorPosition } from "../../../ui";
-import { renderSuggestionIndicator } from "../render";
-import { savePersistedSuggestion } from "../persist";
 import {
   clearSuggestion,
   setIndicatorErrorCount,
@@ -11,6 +9,8 @@ import {
   setShouldApplyFullTextSuggestion,
   setSuggestionPhase,
 } from "../../state";
+import { savePersistedSuggestion } from "../persist";
+import { renderSuggestionIndicator } from "../render";
 import type { CheckContext } from "./types";
 
 const getNextSuggestions = (ctx: CheckContext) => {
@@ -43,7 +43,7 @@ export const syncSuggestionState = (
   currentEditable: HTMLElement,
   ctx: CheckContext,
   autoAdvanceHandled: boolean,
-  useFullTextSuggestion = false,
+  useFullTextSuggestion = false
 ) => {
   if (!autoAdvanceHandled) {
     if (!ctx.isLatinInput && ctx.errorWords.length > 0) {
@@ -78,17 +78,16 @@ export const syncSuggestionState = (
       setShouldApplyFullTextSuggestion(shouldApplyFullTextSuggestion);
       setSuggestionPhase("suggesting");
 
-<<<<<<< HEAD
       if (ctx.isLatinInput || ctx.hasSentenceCorrection) {
         setIndicatorVisualState("latin");
         setIndicatorErrorCount(0);
       } else if (ctx.errorWords.length > 0 || ctx.hasSuggestions) {
         setIndicatorVisualState("error");
         setIndicatorErrorCount(
-          ctx.errorWords.length > 0 ? ctx.errorWords.length : 1,
+          ctx.errorWords.length > 0 ? ctx.errorWords.length : 1
         );
       }
-=======
+
       savePersistedSuggestion({
         editable: currentEditable,
         requestText: ctx.trimmed,
@@ -96,7 +95,6 @@ export const syncSuggestionState = (
         selectedIndex: 0,
         shouldApplyFullTextSuggestion,
       });
->>>>>>> temp-fix
     } else {
       clearSuggestion();
       setSelectedSuggestionIndex(0);

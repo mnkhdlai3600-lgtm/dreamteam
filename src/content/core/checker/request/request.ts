@@ -1,24 +1,6 @@
 // src/content/core/checker/request/request.ts
 
-import { removeIndicator, updateIndicatorPosition } from "../../../ui";
 import { sendCheckTextMessage } from "../../../../lib/chrome";
-import {
-  activeElement,
-  clearSuggestion,
-  docsFrozenBaseText,
-  lastAppliedText,
-  lastCheckedText,
-  resetDocsFrozenBaseText,
-  resetIndicatorVisualState,
-  resetLastDocsRequestScope,
-  setActiveElement,
-  setLastCheckedText,
-  setLastCheckWasLatin,
-  setLastDocsRequestPrefix,
-  setLastDocsRequestText,
-  setShouldAutoAdvanceError,
-} from "../../state";
-import { renderSuggestionIndicator } from "../render";
 import {
   clearHighlights,
   getElementText,
@@ -30,14 +12,35 @@ import {
   setGoogleDocsTextCache,
   syncGoogleDocsTextCache,
 } from "../../../dom/google-docs";
+import { removeIndicator, updateIndicatorPosition } from "../../../ui";
 import { clearHighlightedErrors } from "../../error-state";
-import { buildCheckContext } from "./context";
-import { applyVisualState } from "./visual";
-import { syncSuggestionState } from "./suggestions";
+import {
+  activeElement,
+  clearSuggestion,
+  docsFrozenBaseText,
+  lastAppliedText,
+  lastCheckedText,
+  resetDocsFrozenBaseText,
+  resetIndicatorVisualState,
+  resetLastDocsRequestScope,
+  setActiveElement,
+  setLastCheckWasLatin,
+  setLastCheckedText,
+  setLastDocsRequestPrefix,
+  setLastDocsRequestText,
+  setShouldAutoAdvanceError,
+} from "../../state";
 import { getCheckTargetText } from "../apply/apply-utils";
+import { renderSuggestionIndicator } from "../render";
+import { buildCheckContext } from "./context";
+import { syncSuggestionState } from "./suggestions";
 import type { CheckResponseData } from "./types";
+import { applyVisualState } from "./visual";
 
-<<<<<<< HEAD
+type CheckTextOptions = {
+  useFullText?: boolean;
+};
+
 const DOCS_REQUEST_LOG = "[docs-request-debug]";
 const LATIN_RE = /[A-Za-z]/;
 const CLAUSE_BREAK_RE = /([.?!]\s+|[,;:]\s+|\n+)/g;
@@ -54,13 +57,9 @@ const previewText = (value: string, limit = 160) => {
 
 const logDocsRequest = (
   label: string,
-  payload: Record<string, unknown> = {},
+  payload: Record<string, unknown> = {}
 ) => {
   console.log(`${DOCS_REQUEST_LOG} ${label}`, payload);
-=======
-type CheckTextOptions = {
-  useFullText?: boolean;
->>>>>>> temp-fix
 };
 
 const normalizeCompareText = (value: string) =>
@@ -103,14 +102,15 @@ const getCurrentComparableText = (editable: HTMLElement) => {
 };
 
 const getLastClauseStart = (text: string) => {
-  const matches = [...text.matchAll(CLAUSE_BREAK_RE)];
-  const last = matches[matches.length - 1];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null = null;
+  const regex = new RegExp(CLAUSE_BREAK_RE);
 
-  if (!last || last.index == null) {
-    return 0;
+  while ((match = regex.exec(text)) !== null) {
+    lastIndex = match.index + match[0].length;
   }
 
-  return last.index + last[0].length;
+  return lastIndex;
 };
 
 const buildDeltaPayload = (fullText: string, baseText: string) => {
@@ -218,50 +218,6 @@ const getDocsScopedPayload = (text: string) => {
   return byClause;
 };
 
-const getNonDocsLatinScopedPayload = (text: string) => {
-  const trimmedText = text.trim();
-
-  if (!trimmedText) {
-    return { requestText: "", prefix: "" };
-  }
-
-  const applied = (lastAppliedText ?? "").trim();
-  if (applied) {
-    const byApplied = buildDeltaPayload(trimmedText, applied);
-    if (byApplied.requestText) {
-      return byApplied;
-    }
-  }
-
-  const checked = lastCheckedText.trim();
-  if (checked) {
-    const byChecked = buildDeltaPayload(trimmedText, checked);
-    if (byChecked.requestText) {
-      return byChecked;
-    }
-  }
-
-  return buildClauseScopedPayload(trimmedText);
-};
-
-const getScopedPayload = (text: string) => {
-  const trimmedText = text.trim();
-
-  if (!trimmedText) {
-    return { requestText: "", prefix: "" };
-  }
-
-  if (isGoogleDocsSite()) {
-    return getDocsScopedPayload(trimmedText);
-  }
-
-  if (hasLatinChars(trimmedText)) {
-    return getNonDocsLatinScopedPayload(trimmedText);
-  }
-
-  return { requestText: trimmedText, prefix: "" };
-};
-
 const isDocsTextCloseEnough = (currentText: string, checkedText: string) => {
   const current = normalizeCompareText(currentText);
   const checked = normalizeCompareText(checkedText);
@@ -274,41 +230,43 @@ const isDocsTextCloseEnough = (currentText: string, checkedText: string) => {
 
 export const checkText = async (
   text: string,
-  options: CheckTextOptions = {},
+  options: CheckTextOptions = {}
 ) => {
   const trimmed = text.trim();
-<<<<<<< HEAD
   const docsSite = isGoogleDocsSite();
-  const scoped = getScopedPayload(trimmed);
-  const requestText = scoped.requestText.trim();
-  const justApplied = !!lastAppliedText && trimmed === lastAppliedText.trim();
+
+  const scoped = docsSite
+    ? getDocsScopedPayload(trimmed)
+    : {
+        requestText: options.useFullText
+          ? trimmed
+          : getCheckTargetText(trimmed),
+        prefix: "",
+      };
+
+  const targetText = scoped.requestText.trim();
+
+  const lastAppliedTarget = docsSite
+    ? (lastAppliedText ?? "").trim()
+    : options.useFullText
+    ? (lastAppliedText ?? "").trim()
+    : getCheckTargetText(lastAppliedText ?? "");
+
+  const justApplied = docsSite
+    ? !!lastAppliedText && trimmed === lastAppliedText.trim()
+    : !!lastAppliedTarget && targetText === lastAppliedTarget;
 
   logDocsRequest("check:start", {
     docsSite,
+    useFullText: options.useFullText ?? false,
     inputText: previewText(text),
     trimmed: previewText(trimmed),
-    requestText: previewText(requestText),
+    targetText: previewText(targetText),
     prefix: previewText(scoped.prefix),
     justApplied,
   });
 
-  if (!requestText) {
-    logDocsRequest("check:skip-empty-request");
-=======
-  const targetText = options.useFullText
-    ? trimmed
-    : getCheckTargetText(trimmed);
-  const lastAppliedTarget = options.useFullText
-    ? (lastAppliedText ?? "").trim()
-    : getCheckTargetText(lastAppliedText ?? "");
-  const justApplied = !!lastAppliedTarget && targetText === lastAppliedTarget;
-  console.log("[болор][request-check]", {
-    useFullText: options.useFullText ?? false,
-    trimmed,
-    targetText,
-  });
   if (!trimmed || !targetText) {
->>>>>>> temp-fix
     clearSuggestion();
     clearHighlightedErrors();
     setShouldAutoAdvanceError(false);
@@ -320,11 +278,11 @@ export const checkText = async (
 
   if (docsSite) {
     setGoogleDocsTextCache(trimmed);
-    setLastDocsRequestText(requestText);
+    setLastDocsRequestText(targetText);
     setLastDocsRequestPrefix(scoped.prefix);
 
     logDocsRequest("check:set-docs-scope", {
-      requestText: previewText(requestText),
+      targetText: previewText(targetText),
       prefix: previewText(scoped.prefix),
     });
   } else {
@@ -337,18 +295,22 @@ export const checkText = async (
   }
 
   try {
-<<<<<<< HEAD
-    const response = await sendCheckTextMessage(requestText);
-
-=======
     const response = await sendCheckTextMessage(targetText);
-    console.log("[болор][request-response]", {
-      targetText,
-      corrected: response?.data?.corrected,
-      suggestions: response?.data?.suggestions,
-      errorWords: response?.data?.errorWords,
+
+    logDocsRequest("check:response", {
+      targetText: previewText(targetText),
+      corrected:
+        typeof response?.data?.corrected === "string"
+          ? previewText(response.data.corrected)
+          : "",
+      suggestions: Array.isArray(response?.data?.suggestions)
+        ? response.data.suggestions
+        : [],
+      errorWords: Array.isArray(response?.data?.errorWords)
+        ? response.data.errorWords
+        : [],
     });
->>>>>>> temp-fix
+
     if (!response?.success || !response.data) {
       throw new Error(response?.error || "Шалгалт амжилтгүй");
     }
@@ -359,73 +321,36 @@ export const checkText = async (
     setActiveElement(currentEditable);
 
     const currentText = getCurrentComparableText(currentEditable);
-    const currentTargetText = options.useFullText
+    const currentTargetText = docsSite
+      ? currentText.trim()
+      : options.useFullText
       ? currentText.trim()
       : getCheckTargetText(currentText);
 
     logDocsRequest("check:after-response", {
-      requestText: previewText(requestText),
+      targetText: previewText(targetText),
       currentText: previewText(currentText),
-      responseCorrected: previewText(
-        typeof response.data.corrected === "string"
-          ? response.data.corrected
-          : "",
-      ),
-      responseSuggestions: Array.isArray(response.data.suggestions)
-        ? response.data.suggestions
-        : [],
-      responseErrorWords: Array.isArray(response.data.errorWords)
-        ? response.data.errorWords
-        : [],
+      currentTargetText: previewText(currentTargetText),
     });
 
     if (!currentText && !docsSite) {
       return;
     }
 
-<<<<<<< HEAD
-    if (!docsSite) {
-      const normalizedCurrent = normalizeCompareText(currentText);
-      const normalizedRequest = normalizeCompareText(requestText);
-
-      if (
-        normalizedCurrent &&
-        normalizedRequest &&
-        !normalizedCurrent.endsWith(normalizedRequest)
-      ) {
-        return;
-      }
-    }
-
-    if (docsSite && currentText) {
-      const sameEnough = isDocsTextCloseEnough(currentText, requestText);
-
-      logDocsRequest("check:docs-compare", {
-        currentText: previewText(currentText),
-        requestText: previewText(requestText),
-        sameEnough,
-        currentLength: normalizeCompareText(currentText).length,
-        requestLength: normalizeCompareText(requestText).length,
-      });
-
-      if (!sameEnough) {
-        const currentLen = normalizeCompareText(currentText).length;
-        const checkedLen = normalizeCompareText(requestText).length;
-        const lengthGap = Math.abs(currentLen - checkedLen);
-
-        if (lengthGap > 120) {
-          logDocsRequest("check:skip-length-gap", {
-            currentLen,
-            checkedLen,
-            lengthGap,
-          });
-=======
-    if (!isGoogleDocsSite() && currentTargetText !== targetText) {
+    if (!docsSite && currentTargetText !== targetText) {
       return;
     }
 
-    if (isGoogleDocsSite() && currentTargetText) {
+    if (docsSite && currentTargetText) {
       const sameEnough = isDocsTextCloseEnough(currentTargetText, targetText);
+
+      logDocsRequest("check:docs-compare", {
+        currentTargetText: previewText(currentTargetText),
+        targetText: previewText(targetText),
+        sameEnough,
+        currentLength: normalizeCompareText(currentTargetText).length,
+        targetLength: normalizeCompareText(targetText).length,
+      });
 
       if (!sameEnough) {
         const currentLen = normalizeCompareText(currentTargetText).length;
@@ -433,24 +358,19 @@ export const checkText = async (
         const lengthGap = Math.abs(currentLen - checkedLen);
 
         if (lengthGap > 120) {
->>>>>>> temp-fix
           return;
         }
       }
     }
 
     const ctx = buildCheckContext(
-<<<<<<< HEAD
-      requestText,
-=======
       targetText,
->>>>>>> temp-fix
       response.data as CheckResponseData,
-      justApplied,
+      justApplied
     );
 
     const shouldKeepLatinActive =
-      hasLatinChars(requestText) || hasLatinChars(currentText);
+      hasLatinChars(targetText) || hasLatinChars(currentText);
 
     ctx.isLatinInput = ctx.isLatinInput || shouldKeepLatinActive;
 
@@ -468,28 +388,23 @@ export const checkText = async (
 
     const { autoAdvanceHandled } = await applyVisualState(currentEditable, ctx);
 
-<<<<<<< HEAD
-    syncSuggestionState(currentEditable, ctx, autoAdvanceHandled);
-    setLastCheckedText(docsSite ? currentText : requestText);
+    syncSuggestionState(
+      currentEditable,
+      ctx,
+      autoAdvanceHandled,
+      options.useFullText ?? false
+    );
+
+    setLastCheckedText(docsSite ? currentText : targetText);
 
     logDocsRequest("check:done", {
-      savedLastCheckedText: previewText(docsSite ? currentText : requestText),
+      savedLastCheckedText: previewText(docsSite ? currentText : targetText),
     });
   } catch (error) {
     logDocsRequest("check:error", {
       error: error instanceof Error ? error.message : String(error),
     });
 
-=======
-    syncSuggestionState(
-      currentEditable,
-      ctx,
-      autoAdvanceHandled,
-      options.useFullText ?? false,
-    );
-    setLastCheckedText(targetText);
-  } catch {
->>>>>>> temp-fix
     clearSuggestion();
     clearHighlightedErrors();
     resetIndicatorVisualState();

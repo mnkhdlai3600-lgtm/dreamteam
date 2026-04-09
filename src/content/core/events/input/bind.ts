@@ -53,8 +53,6 @@ export const bindInputListener = (doc: Document, source: string) => {
   if (boundDocs.has(doc)) return;
   boundDocs.add(doc);
 
-<<<<<<< HEAD
-=======
   doc.addEventListener(
     "beforeinput",
     (event) => {
@@ -73,7 +71,7 @@ export const bindInputListener = (doc: Document, source: string) => {
         markRecentPasteLikeInput(inputType);
       }
     },
-    true,
+    true
   );
 
   doc.addEventListener(
@@ -81,7 +79,7 @@ export const bindInputListener = (doc: Document, source: string) => {
     () => {
       markRecentPasteLikeInput("insertFromPaste");
     },
-    true,
+    true
   );
 
   doc.addEventListener(
@@ -89,16 +87,15 @@ export const bindInputListener = (doc: Document, source: string) => {
     () => {
       markRecentPasteLikeInput("insertFromDrop");
     },
-    true,
+    true
   );
 
->>>>>>> temp-fix
   doc.addEventListener(
     "input",
     (event) => {
       runInputFlow(event, `${source}:input`);
     },
-    true,
+    true
   );
 
   doc.addEventListener(
@@ -109,7 +106,7 @@ export const bindInputListener = (doc: Document, source: string) => {
       resetGoogleDocsTextCache();
       syncGoogleDocsTextCache(event.target);
     },
-    true,
+    true
   );
 
   doc.addEventListener(
@@ -120,7 +117,7 @@ export const bindInputListener = (doc: Document, source: string) => {
 
       updateGoogleDocsTextCacheFromKeyboardEvent(event);
     },
-    true,
+    true
   );
 
   doc.addEventListener(
@@ -134,6 +131,6 @@ export const bindInputListener = (doc: Document, source: string) => {
         runInputFlow(event, `${source}:keyup`);
       }, 0);
     },
-    true,
+    true
   );
 };
