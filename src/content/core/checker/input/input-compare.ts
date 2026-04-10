@@ -6,6 +6,7 @@ import {
   lastCheckedText,
   suggestionPhase,
 } from "../../state";
+import { getCheckTargetText } from "../apply/apply-utils";
 
 const LATIN_RE = /[A-Za-z]/g;
 const CYRILLIC_RE = /[А-ЯӨҮЁа-яөүё]/g;
@@ -35,7 +36,8 @@ export const normalizeCompareText = (value: string) =>
     .trim();
 
 export const getVisualStateFromText = (text: string) => {
-  return isMostlyLatinText(text) ? "latin" : "idle";
+  const targetText = getCheckTargetText(text);
+  return targetText && isMostlyLatinText(targetText) ? "latin" : "idle";
 };
 
 export const shouldSkipSameTextCheck = (text: string) => {

@@ -78,14 +78,21 @@ export const syncSuggestionState = (
       setShouldApplyFullTextSuggestion(shouldApplyFullTextSuggestion);
       setSuggestionPhase("suggesting");
 
-      if (ctx.isLatinInput || ctx.hasSentenceCorrection) {
+      if (ctx.isLatinInput) {
         setIndicatorVisualState("latin");
         setIndicatorErrorCount(0);
-      } else if (ctx.errorWords.length > 0 || ctx.hasSuggestions) {
+      } else if (
+        ctx.errorWords.length > 0 ||
+        ctx.hasSuggestions ||
+        ctx.hasSentenceCorrection
+      ) {
         setIndicatorVisualState("error");
         setIndicatorErrorCount(
           ctx.errorWords.length > 0 ? ctx.errorWords.length : 1
         );
+      } else {
+        setIndicatorVisualState("idle");
+        setIndicatorErrorCount(0);
       }
 
       savePersistedSuggestion({
@@ -100,6 +107,8 @@ export const syncSuggestionState = (
       setSelectedSuggestionIndex(0);
       setShouldApplyFullTextSuggestion(false);
       setSuggestionPhase("idle");
+      setIndicatorVisualState("idle");
+      setIndicatorErrorCount(0);
     }
   }
 
