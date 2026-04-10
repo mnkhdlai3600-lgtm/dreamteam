@@ -1,13 +1,9 @@
-import { applySuggestionToInput } from "./apply-input";
-import {
-  applySuggestionToDocs,
-  getDocsCurrentText,
-  syncDocsStateAfterApply,
-} from "./apply-docs";
-import { applySuggestionToContentEditable } from "./apply-contenteditable";
-import { hasLatinText } from "./apply-utils";
-import { checkText } from "../request/request";
+import { APPLY_GUARD_MS, APPLY_RESET_MS } from "../../../../lib/constants";
 import { getElementText, resolveActiveEditable } from "../../../dom";
+import { isGoogleDocsSite } from "../../../dom/google-docs";
+import { removeSuggestionDropdown, updateIndicatorPosition } from "../../../ui";
+import { getHighlightedErrors } from "../../error-state";
+import { shouldSkipApplySuggestion } from "../../guard";
 import {
   activeElement,
   cancelPendingRequests,
@@ -21,26 +17,30 @@ import {
   latestSuggestion,
   setActiveElement,
   setDebounceTimer,
+  setDocsFrozenBaseText,
   setIndicatorErrorCount,
   setIndicatorVisualState,
   setIsApplyingHotkey,
   setIsApplyingSuggestion,
   setIsSuggestionLoading,
   setLastAppliedText,
-  setLastCheckedText,
   setLastCheckWasLatin,
+  setLastCheckedText,
   setLatestSuggestion,
   setPauseDocsSuggestionUntilInput,
   setShouldAutoAdvanceError,
   setSuggestionPhase,
-  setDocsFrozenBaseText,
+  setSuppressInputUntil,
 } from "../../state";
-import { shouldSkipApplySuggestion } from "../../guard";
-import { getHighlightedErrors } from "../../error-state";
-import { removeSuggestionDropdown, updateIndicatorPosition } from "../../../ui";
 import { renderSuggestionIndicator } from "../render";
-import { APPLY_GUARD_MS, APPLY_RESET_MS } from "../../../../lib/constants";
-import { isGoogleDocsSite } from "../../../dom/google-docs";
+import { applySuggestionToContentEditable } from "./apply-contenteditable";
+import {
+  applySuggestionToDocs,
+  getDocsCurrentText,
+  syncDocsStateAfterApply,
+} from "./apply-docs";
+import { applySuggestionToInput } from "./apply-input";
+import { hasLatinText } from "./apply-utils";
 
 export const applySuggestion = async () => {
   const resolved =
@@ -71,7 +71,7 @@ export const applySuggestion = async () => {
     : hasLatinText(currentText);
 
   const targetError = targetErrorId
-    ? (getHighlightedErrors().find((item) => item.id === targetErrorId) ?? null)
+    ? getHighlightedErrors().find((item) => item.id === targetErrorId) ?? null
     : null;
 
   setIsApplyingHotkey(true);
@@ -104,7 +104,7 @@ export const applySuggestion = async () => {
         currentText,
         suggestion,
         isLatinInput,
-        targetError?.word,
+        targetError?.word
       );
       ok = result.ok;
       nextText = result.nextText;
@@ -114,7 +114,7 @@ export const applySuggestion = async () => {
         suggestion,
         isLatinInput,
         targetErrorId,
-        targetError?.word,
+        targetError?.word
       );
       ok = result.ok;
       nextText = result.nextText;
@@ -133,14 +133,12 @@ export const applySuggestion = async () => {
     setIsSuggestionLoading(false);
 
     setLastAppliedText(nextText);
-    setLastCheckedText(docsSite ? "" : nextText.trim());
+    setLastCheckedText(nextText.trim());
     setLastCheckWasLatin(hasLatinText(nextText));
     setShouldAutoAdvanceError(!isLatinInput && !docsSite);
+    setSuppressInputUntil(Date.now() + APPLY_RESET_MS);
 
     if (docsSite) {
-      console.log("[docs-apply] freeze-base", {
-        nextText,
-      });
       setPauseDocsSuggestionUntilInput(true);
       setDocsFrozenBaseText(nextText);
       syncDocsStateAfterApply(resolved, nextText);
@@ -150,12 +148,6 @@ export const applySuggestion = async () => {
     setIndicatorErrorCount(0);
     renderSuggestionIndicator();
     updateIndicatorPosition(resolved);
-
-    if (!docsSite) {
-      window.setTimeout(() => {
-        void checkText(nextText);
-      }, 250);
-    }
   } finally {
     window.setTimeout(() => setIsApplyingSuggestion(false), APPLY_RESET_MS);
     window.setTimeout(() => setIsApplyingHotkey(false), APPLY_GUARD_MS);
